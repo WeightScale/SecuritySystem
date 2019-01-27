@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.136
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{803FD0C6-D64E-4E16-9DC3-1DAEC859A3D2}") = "SecuritySystem", "SecuritySystem.vgdbproj", "{A28F03B2-C00B-4F27-B2D4-C1CA0EE948AA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Generic_ESP8266_Module = Debug|Generic_ESP8266_Module
+		Release|Generic_ESP8266_Module = Release|Generic_ESP8266_Module
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A28F03B2-C00B-4F27-B2D4-C1CA0EE948AA}.Debug|Generic_ESP8266_Module.ActiveCfg = Debug|Generic_ESP8266_Module
+		{A28F03B2-C00B-4F27-B2D4-C1CA0EE948AA}.Debug|Generic_ESP8266_Module.Build.0 = Debug|Generic_ESP8266_Module
+		{A28F03B2-C00B-4F27-B2D4-C1CA0EE948AA}.Release|Generic_ESP8266_Module.ActiveCfg = Release|Generic_ESP8266_Module
+		{A28F03B2-C00B-4F27-B2D4-C1CA0EE948AA}.Release|Generic_ESP8266_Module.Build.0 = Release|Generic_ESP8266_Module
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D8A91E86-F104-44DD-B15B-C59F653B8F4D}
+	EndGlobalSection
+EndGlobal
