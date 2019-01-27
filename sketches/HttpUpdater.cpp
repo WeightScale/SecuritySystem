@@ -2,7 +2,7 @@
 //#include <WiFiClient.h>
 //#include <WiFiServer.h>
 //#include <ESP8266HTTPUpdateServer.h>
-//#include <ESP8266httpUpdate.h>
+#include <ESP8266httpUpdate.h>
 //#include <WiFiUdp.h>
 extern "C" uint32_t _SPIFFS_start;
 extern "C" uint32_t _SPIFFS_end;

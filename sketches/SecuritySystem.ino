@@ -39,9 +39,10 @@ void setup(){
 	BATTERY = new BatteryClass();
 	BATTERY->callDischaged([](int charge) {
 		String str = "Заряд батареи низкий: " + String(charge) + "%";
-		if (GsmModem.sendSMS("+380500784234", str.c_str())){
-			BATTERY->setSMS(true);		
-		}
+		Alarm.textAll(str);
+		//if (GsmModem.sendSMS("+380500784234", str.c_str())){
+		//	BATTERY->setSMS(true);		
+		//}
 	});
 	taskController.add(BATTERY);
 	

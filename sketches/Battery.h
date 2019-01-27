@@ -4,6 +4,7 @@
 #include <ArduinoJson.h>
 #include <functional>
 #include "Task.h"
+#include "Memory.h"
 
 //#define DEBUG_BATTERY		/*Для теста*/
 
@@ -40,6 +41,7 @@ protected:
 	bool _isDischarged = false;
 	bool _is_sms = false;
 	unsigned int _charge;
+	settings_t *_settings;
 	int _max;	/*Значение ацп максимального заряд*/
 	int _min;	/*Значение ацп минимального заряд*/
 	int _get_adc(byte times = 1);	

@@ -20,6 +20,7 @@ public:
 	ServerClass(uint16_t port);
 	~ServerClass();
 	void setup();
+	bool checkAdminAuth(AsyncWebServerRequest * r);
 };
 
 extern ServerClass server;

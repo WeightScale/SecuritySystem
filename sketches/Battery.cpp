@@ -1,13 +1,15 @@
 #include "Battery.h"
 #include "Memory.h"
+#include "Server.h"
 
 BatteryClass* BATTERY;
 
 BatteryClass::BatteryClass() : Task(20000) {
 	/* 20 Обновляем заряд батареи */
 	onRun(std::bind(&BatteryClass::fetchCharge, this));
-	_max = Memory.eeprom.settings.bat_max;
-	_min = Memory.eeprom.settings.bat_min;	
+	_settings = &Memory.eeprom.settings;
+	_max = _settings->bat_max;
+	_min = _settings->bat_min;	
 	fetchCharge();
 #ifdef DEBUG_BATTERY
 	_isDischarged = false;
@@ -50,8 +52,8 @@ size_t BatteryClass::doInfo(JsonObject& json){
 }
 
 void BatteryClass::handleBinfo(AsyncWebServerRequest *request){
-	if (!request->authenticate(Scale.getUser(), Scale.getPassword()))
-		if (!browserServer.checkAdminAuth(request)) {
+	if (!request->authenticate(_settings->login, _settings->password))
+		if (!server.checkAdminAuth(request)) {
 			return request->requestAuthentication();
 		}
 	if (request->args() > 0) {
