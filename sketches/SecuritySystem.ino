@@ -56,6 +56,7 @@ void setup(){
 	//delay(10000);
 	//f = GsmModem.disableSleep();
 	server.setup();
+	
 }
 
 void /*ICACHE_RAM_ATTR*/ loop() {
