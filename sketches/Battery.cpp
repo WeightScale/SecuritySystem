@@ -4,7 +4,7 @@
 
 BatteryClass* BATTERY;
 
-BatteryClass::BatteryClass() : Task(20000) {
+BatteryClass::BatteryClass() : Task(60000) {
 	/* 20 Обновляем заряд батареи */
 	onRun(std::bind(&BatteryClass::fetchCharge, this));
 	_settings = &Memory.eeprom.settings;

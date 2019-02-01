@@ -35,10 +35,11 @@ class GsmModemClass : public SoftwareSerial {
 		uint32_t _baud;
 		uint8_t _timeout;
 		String _buffer;
-		String _readSerial();
+		
 		String _readSerial(uint32_t timeout);
 		bool _checkResponse(enum_ask_t ask, uint16_t timeout);
 		String _readSerialUtil(char terminator, uint16_t timeout);
+		String _waitResponse(uint32_t timeout);
 		static const uint8_t _responseInfoSize = 12; 
 		const char* _responseInfo[_responseInfoSize] = {
 			 "ERROR",
@@ -62,6 +63,7 @@ class GsmModemClass : public SoftwareSerial {
 		bool LED_FLAG;
 		uint32_t BAUDRATE;
 		GsmModemClass(void);
+		String _readSerial();
 		void start();
 		void reset();
 		uint8_t signalQuality();
@@ -72,6 +74,10 @@ class GsmModemClass : public SoftwareSerial {
 		bool enterSleepMode();
 		bool disableSleep();
 		bool sendSMS(const char* number, const char* text);
+		bool sendSMS(const char* number, uint8_t* text);
+		String getSMS(uint8_t index);
+	void processSMS(const String );
+		String sendATCommand(String cmd, bool waiting, uint32_t timeout = TIME_OUT_READ_SERIAL);
 };
 
 extern GsmModemClass GsmModem;

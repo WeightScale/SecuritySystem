@@ -29,6 +29,15 @@ void GsmModemClass::start() {
 	
 	reset();
 	echoOff();
+	while (!_checkResponse(OK_, 500)) {
+		this->print(F("AT+CLIP=1\r"));
+	}
+	while (!_checkResponse(OK_, 500)) {
+		this->println("AT+CMGF=1;&W");
+	}
+	while (!_checkResponse(OK_, 500)){
+		this->println("AT+DDET=1");
+	}
 }
 
 void GsmModemClass::reset() {
@@ -42,10 +51,11 @@ void GsmModemClass::reset() {
 	delay(1000);
 
 	// Modul kendine geldi mi onu bekle
-	this->print(F("AT\r"));
-	/*while (_readSerial().indexOf("OK") == -1) {
-		this->print(F("AT\r"));
-	}*/
+	//this->print(F("AT\r"));
+	//this->print((char)26);
+	//while(!_checkResponse(OK_, 2000)) {
+		//this->print(F("AT\r"));
+	//}
 	while (!_checkResponse(OK_,2000)) {
 		this->print(F("AT\r"));
 	}
@@ -144,76 +154,55 @@ bool GsmModemClass::disableSleep() {
 
 // ECHO OFF
 bool GsmModemClass::echoOff() {
-	this->print(F("ATE0\r"));
-	//_buffer = _readSerial();
-	/*if ((_buffer.indexOf("OK")) != -1) {
-		return true;
-	}*/
+	this->print(F("ATE0\r"));	
 	return _checkResponse(OK_, 5000);
 }
 
 // ECHO ON
 bool GsmModemClass::echoOn() {
-	this->print(F("ATE1\r"));
-	//_buffer = _readSerial();
-	//if ((_buffer.indexOf("OK")) != -1) {
-	//	return true;
-	//}
-	//else {
-	//	return false;
-	//}
+	this->print(F("ATE1\r"));	
 	return _checkResponse(OK_, 3000);
 }
 
-bool ICACHE_RAM_ATTR GsmModemClass::sendSMS(const char* number, const char* text) {
-	/* This sends an sms out 
-	*	First send out AT+CMGF=1 - activate text mode
-	* The AT+CMGS=\number\
-	AT+CMGS=<number><CR><message><CTRL-Z>	+CMGS:<mr>
-	OK
-	*/
-	byte result;
-	this->print("AT+CMGF=1\r\n");  // set sms to text mode
-	if (!_checkResponse(OK_, 5000))
-		return false; // this just end the function here 
-	delay(1000);
+bool /*ICACHE_RAM_ATTR*/ GsmModemClass::sendSMS(const char* number, const char* text) {			
 	this->print("AT+CMGS=\"");   // command to send sms
 	this->print(number);
-	this->print("\"\r\n");
-	delay(1000);
-	//result = _checkResponse(READY_TO_RECEIVE,60000);  // to clear buffer and see if successful
+	this->print("\"\r\n");	
 	if(_checkResponse(READY_TO_RECEIVE, 20000)) {
 		this->print(text);
 		this->print("\r");
 		//delay(1000);
 		_checkResponse(OK_,1000);
-		this->print((char)26);
-		//result = _checkResponse(20000);
-		// if successfully sent we should get CMGS:xxx ending with OK
+		this->print((char)26);		
 		return _checkResponse(OK_, 5000);
-		//if(_checkResponse(OK_,20000))
-		//	return true;
-		//else
-		//	return false;
 	}
+	return false;
 }
 
-bool GsmModemClass::_checkResponse(enum_ask_t ask, uint16_t timeout)
-{
-	// This function handles the response from the radio and returns a status response
-	//int Status = 99;  // the defualt stat and it means a timeout
+bool GsmModemClass::sendSMS(const char* number, uint8_t* text) {	
+	this->print("AT+CMGS=\"");    // command to send sms
+	this->print(number);
+	this->print("\"\r\n");
+	if(_checkResponse(READY_TO_RECEIVE, 20000)) {
+		this->print(String((char*)text));
+		this->print("\r");
+		_checkResponse(OK_, 1000);
+		this->print((char)26);
+		return _checkResponse(OK_, 5000);
+	}
+	return false;
+}
+
+String GsmModemClass::getSMS(uint8_t index){
+	return sendATCommand("AT+CMGR=" + (String)index + ",1", true);
+}
+
+bool GsmModemClass::_checkResponse(enum_ask_t ask, uint16_t timeout){	
 	unsigned long t = millis();
-	//unsigned long count = 0;
-	 
-	// loop through until their is a timeout or a response from the device
-	while(millis() < t + timeout)
-	{
+	while(millis() < t + timeout){
 		//count++;
-		if(this->available()) //check if the device is sending a message
-		{
+		if(this->available()){
 			String tempData = this->_readSerialUtil('\n', timeout);   // reads the response			
-			//char *mydataIn = strdup(tempData.c_str());  // convertss to char data from
-			//Status = tempData.indexOf(_responseInfo[ask]);
 			if (tempData.indexOf(_responseInfo[ask]) != -1)
 				return true;
 		/*
@@ -231,45 +220,14 @@ bool GsmModemClass::_checkResponse(enum_ask_t ask, uint16_t timeout)
 		  * OK - 7
 		  * 
 		  * 
-		  */
-		  /*for(byte i = 0 ; i < _responseInfoSize ; i++)
-			{
-				if ((strstr(mydataIn, _responseInfo[i])) != NULL)
-				{
-					Status = i;
-					return Status;
-				}
-			}*/
+		  */		  
 		}
 		ESP.wdtFeed();
-		//Serial.println(count);
 	}
 	return false;
 }
 
-// READ FROM SERIAL
-String GsmModemClass::_readSerial() {
-
-	uint64_t timeOld = millis();
-
-	while (!this->available() && !(millis() > timeOld + TIME_OUT_READ_SERIAL))
-	{
-		delay(13);
-	}
-
-	String str = "";
-	while (this->available())
-	{
-		if (this->available())
-		{
-			str += (char) this->read();
-		}
-	}
-
-	return str;
-}
-
-String ICACHE_RAM_ATTR GsmModemClass::_readSerialUtil(char terminator, uint16_t timeout) {
+String /*ICACHE_RAM_ATTR*/ GsmModemClass::_readSerialUtil(char terminator, uint16_t timeout) {
 
 	uint64_t timeOld = millis();
 	String tempData = "";
@@ -286,29 +244,61 @@ String ICACHE_RAM_ATTR GsmModemClass::_readSerialUtil(char terminator, uint16_t 
 			c = timedRead();
 			ESP.wdtFeed();
 		}
-		return tempData;		
+	return tempData;		
+	}
+	return tempData;	
+}
+static int millis_ge(unsigned long ms) {
+	long l = (long)(millis() - ms);
+	return (l) >= 0;
+}
+String GsmModemClass::_readSerial() {	
+	String tempData = "";
+	uint64_t timeOld = millis();
+	while (this->available() && !(millis() > (timeOld + 50))) {
+		if (this->available()) {	
+			tempData += (char) this->read();
+			timeOld = millis();
+		}
+		delay(1);
 	}
 	return tempData;	
 }
 
-String GsmModemClass::_readSerial(uint32_t timeout) {
-
+String GsmModemClass::_readSerial(uint32_t timeout) {	
+	String tempData = "";
 	uint64_t timeOld = millis();
-
-	while (!this->available() && !(millis() > timeOld + timeout))
-	{
-		delay(13);
+	while (this->available() && !(millis() > (timeOld + timeout))) {
+		if (this->available()) {	
+			tempData += (char) this->read();
+			timeOld = millis();
+		}
+		delay(1);
 	}
+	return tempData;
+}
 
-	String str = "";
-
-	while (this->available())
-	{
-		if (this->available())
-		{
-			str += (char) this->read();
+String GsmModemClass::sendATCommand(String cmd, bool waiting, uint32_t timeout) {
+	String _resp = "";                                                // Переменная для хранения результата	
+	GsmModem.println(cmd);                                              // Отправляем команду модулю
+	if(waiting) {// Если необходимо дождаться ответа...		
+		_resp = _waitResponse(timeout);                                         // ... ждем, когда будет передан ответ
+		// Если Echo Mode выключен (ATE0), то эти 3 строки можно закомментировать
+		if(_resp.startsWith(cmd)) {// Убираем из ответа дублирующуюся команду			
+			_resp = _resp.substring(_resp.indexOf("\r", cmd.length()) + 2);
 		}
 	}
+	return _resp;                                                   // Возвращаем результат. Пусто, если проблема
+}
 
-	return str;
+String GsmModemClass::_waitResponse(uint32_t timeout) {
+	// Функция ожидания ответа и возврата полученного результата
+	String _resp = "";                                                // Переменная для хранения результата
+	long _timeout = millis() + timeout;                                 // Переменная для отслеживания таймаута (10 секунд)
+	while(!GsmModem.available() && millis() < _timeout) {delay(1);};         // Ждем ответа 10 секунд, если пришел ответ или наступил таймаут, то...
+	if(GsmModem.available()) {
+		// Если есть, что считывать...
+		_resp = GsmModem.readString();                                     // ... считываем и запоминаем
+	}	
+	return _resp;                                                   // ... возвращаем результат. Пусто, если проблема
 }

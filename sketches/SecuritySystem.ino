@@ -34,12 +34,14 @@ void setup(){
 #else
 	Serial.begin(115200);
 	Serial.println("START SIM800L");
-#endif	
+#endif
 	Memory.init();
+	Alarm._addClient(new AlarmClient("0500784234",true));	
+	//Alarm._addClient(new AlarmClient("0500784076"));
 	BATTERY = new BatteryClass();
 	BATTERY->callDischaged([](int charge) {
 		String str = "Заряд батареи низкий: " + String(charge) + "%";
-		Alarm.textAll(str);
+		//Alarm.textAll(str);
 		//if (GsmModem.sendSMS("+380500784234", str.c_str())){
 		//	BATTERY->setSMS(true);		
 		//}
@@ -51,18 +53,45 @@ void setup(){
 	
 	GsmModem.start();	
 	
-	String str = GsmModem.moduleModel();
-	str = GsmModem.signalQuality();	
+	//String str = GsmModem.moduleModel();
+	//str = GsmModem.signalQuality();	
 	//bool f = GsmModem.enterSleepMode();
 	//delay(10000);
 	//f = GsmModem.disableSleep();
 	server.setup();
 	
 }
-
-void /*ICACHE_RAM_ATTR*/ loop() {
+String str = "";
+String msg = "";
+void ICACHE_RAM_ATTR loop() {
 	taskController.run();
 	Alarm.handle();
+	if (GsmModem.available()){
+		str = GsmModem._readSerial();
+		if (str.indexOf(F("RING")) != -1) {			
+			str = str.substring(str.indexOf(F("+CLIP:")) + 6, str.indexOf(","));
+			str.replace("\"", "");
+			str.trim();
+			Alarm.fetchCall(str);			
+		}
+		else if (str.indexOf(F("+DTMF:")) != -1) {
+			str.trim();
+			Alarm.parseDTMF(str.substring(7, 8));			
+		}else if (str.indexOf(F("+CMTI:")) != -1){
+			//str = sendATCommand("AT+CMGL=\"REC UNREAD\",1", true);  // Отправляем запрос чтения непрочитанных сообщений
+			int i = str.substring(str.indexOf(F("SM")) + 4, str.lastIndexOf("\r")).toInt();
+			Alarm.fetchMessage(i);			
+			
+		}else if (str.indexOf(F("UNDER")) != -1){
+			str = "";
+		}else if (str.startsWith(F("NO CARRIER"))){
+			msg = "";
+		}else{
+			if (str.indexOf(F("SMS ready"))){
+				digitalWrite(DEFAULT_LED_PIN, HIGH);	
+			}
+			str = "";
+		}
 		
+	}	
 }
-

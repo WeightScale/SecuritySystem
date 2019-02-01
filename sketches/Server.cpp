@@ -25,6 +25,7 @@ void ServerClass::setup() {
 	
 	addHandler(new SPIFFSEditor(_httpAuth.wwwUsername.c_str(), _httpAuth.wwwPassword.c_str()));	
 	addHandler(new HttpUpdaterClass("sa", "654321"));
+	AsyncWebServer::begin();
 };
 
 bool ServerClass::checkAdminAuth(AsyncWebServerRequest * r) {	
