@@ -31,11 +31,12 @@ enum enum_ask_t{
 };
 
 class GsmModemClass : public SoftwareSerial {
+	typedef std::function<void(int)> HandleCallAccept;
 	private:
 		uint32_t _baud;
 		uint8_t _timeout;
 		String _buffer;
-		
+		HandleCallAccept _handleAccept;
 		String _readSerial(uint32_t timeout);
 		bool _checkResponse(enum_ask_t ask, uint16_t timeout);
 		String _readSerialUtil(char terminator, uint16_t timeout);
@@ -77,7 +78,9 @@ class GsmModemClass : public SoftwareSerial {
 		bool sendSMS(const char* number, uint8_t* text);
 		String getSMS(uint8_t index);
 	void processSMS(const String );
-		String sendATCommand(String cmd, bool waiting, uint32_t timeout = TIME_OUT_READ_SERIAL);
+	String sendATCommand(String cmd, bool waiting, uint32_t timeout = TIME_OUT_READ_SERIAL);
+	void onCallAccept(HandleCallAccept accept) {_handleAccept = accept;};
+	int doCall(String phone, uint16_t timeout);
 };
 
 extern GsmModemClass GsmModem;

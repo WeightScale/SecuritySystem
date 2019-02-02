@@ -3,103 +3,6 @@
 
 AlarmClass Alarm;
 
-AlarmMessageBuffer::AlarmMessageBuffer()
-	: _data(nullptr)
-	, _len(0)
-	, _lock(false)
-	, _count(0)
-{
-
-}
-
-AlarmMessageBuffer::AlarmMessageBuffer(uint8_t * data, size_t size) 
-	: _data(nullptr)
-	, _len(size)
-	, _lock(false)
-	, _count(0)
-{
-
-	if (!data) {
-		return; 
-	}
-
-	_data = new uint8_t[_len + 1];
-
-	if (_data) {
-		memcpy(_data, data, _len);
-		_data[_len] = 0; 
-	}
-}
-
-AlarmMessageBuffer::AlarmMessageBuffer(size_t size)
-	: _data(nullptr)
-	, _len(size)
-	, _lock(false)
-	, _count(0)
-{
-	_data = new uint8_t[_len + 1]; 
-
-	if (_data) {
-		_data[_len] = 0; 
-	}
-  
-}
-
-AlarmMessageBuffer::AlarmMessageBuffer(const AlarmMessageBuffer & copy)
-	: _data(nullptr)
-	, _len(0)
-	, _lock(false)
-	, _count(0)
-{
-	_len = copy._len;
-	_lock = copy._lock;
-	_count = 0;
-
-	if (_len) {
-		_data = new uint8_t[_len + 1]; 
-		_data[_len] = 0; 
-	} 
-
-	if (_data) {
-		memcpy(_data, copy._data, _len);
-		_data[_len] = 0; 
-	}
-
-}
-
-AlarmMessageBuffer::AlarmMessageBuffer(AlarmMessageBuffer && copy)
-	: _data(nullptr)
-	, _len(0)
-	, _lock(false)
-	, _count(0)
-{
-	_len = copy._len;
-	_lock = copy._lock;
-	_count = 0;
-
-	if (copy._data) {
-		_data = copy._data; 
-		copy._data = nullptr; 
-	} 
-
-}
-
-AlarmMessageBuffer::~AlarmMessageBuffer(){
-	if (_data) {
-		delete[] _data; 
-	}
-}
-
-AlarmMessageBuffer * AlarmClass::makeBuffer(uint8_t * data, size_t size) {
-	AlarmMessageBuffer * buffer = new AlarmMessageBuffer(data, size); 
-  
-	if (buffer) {
-		_buffers.add(buffer);
-	}
-
-	return buffer; 
-}
-
 AlarmSMSMessage::AlarmSMSMessage(const char * data, size_t len)	: _len(len)
 {	
 	_data = (uint8_t*)malloc(_len + 1);
@@ -114,68 +17,48 @@ AlarmSMSMessage::AlarmSMSMessage(const char * data, size_t len)	: _len(len)
 	}
 }
 
-AlarmMultiMessage::AlarmMultiMessage(AlarmMessageBuffer * buffer)
-	: _ALbuffer(nullptr)
-{
-
-	if (buffer) {
-		_ALbuffer = buffer; 
-		(*_ALbuffer)++; 
-		_data = buffer->get(); 
-		_len = buffer->length(); 
-		_status = AL_MSG_SENDING;
-		//ets_printf("M: %u\n", _len);
-	}
-	else {
-		_status = AL_MSG_ERROR;
-	}
-  
-} 
-
-
-AlarmMultiMessage::~AlarmMultiMessage() {
-	if (_ALbuffer) {
-		(*_ALbuffer)--;  // decreases the counter. 
-	}
+AlarmSMSMessage::~AlarmSMSMessage() {
+	if (_data != NULL)
+		free(_data);
 }
 
-size_t AlarmMultiMessage::send(AlarmClient *client) {
+void AlarmSMSMessage::send(AlarmClient *client) {
 	if (_status != AL_MSG_SENDING)
-		return 0;
-
-	size_t sent /*= webSocketSendFrame(client, final, opCode, _mask, dPtr, toSend)*/;
+		return ;
+	
 	GsmModem.flush();
-	GsmModem.sendSMS(client->_phone, _data);
-	_status = AL_MSG_SENDING;	
-	return sent;
+	//GsmModem.sendSMS(client->_phone, _data);
+	_status = AL_MSG_SENDING;
+	//delete this;
 }
 
 void AlarmClient::_runQueue() {
-	while (!_messageQueue.isEmpty() && _messageQueue.front()->finished()) {
+	/*while (!_messageQueue.isEmpty() && _messageQueue.front()->finished()) {
 		_messageQueue.remove(_messageQueue.front());
 	}
 
-	if (!_messageQueue.isEmpty() /*&& _messageQueue.front()->betweenFrames()*/) {
+	if (!_messageQueue.isEmpty()) {
 		_messageQueue.front()->send(this);
+	}*/
+	if (_message) {
+		_message->send(this);
+		delete _message;
 	}
 }
 
 void AlarmClient::_queueMessage(AlarmMessage *dataMessage) {	
 	if (dataMessage == NULL)
 		return;		
-	if (_messageQueue.length() > AL_MAX_QUEUED_MESSAGES) {
+	/*if (_messageQueue.length() > AL_MAX_QUEUED_MESSAGES) {
 		ets_printf("ERROR: Too many messages queued\n");
 		delete dataMessage;
 	}
 	else {
 		_messageQueue.add(dataMessage);
-	}
+	}*/
+	_message = dataMessage;
 	if (canSend())
 		_runQueue();
-}
-
-void AlarmClient::text(AlarmMessageBuffer * buffer) {
-	_queueMessage(new AlarmMultiMessage(buffer));
 }
 
 void AlarmClient::text(const char * message, size_t len) {
@@ -185,59 +68,60 @@ void AlarmClient::text(const String &message) {
 	text(message.c_str(), message.length());
 }
 
-AlarmClass::AlarmClass()
-	:_clients(LinkedList<AlarmClient *>([](AlarmClient *c){ delete c; }))
-	, _buffers(LinkedList<AlarmMessageBuffer *>([](AlarmMessageBuffer *b){ delete b; }))
+void AlarmClient::call() {
+	GsmModem.onCallAccept([](int value) {
+		GsmModem.sendATCommand(F("ATH\n"), false);		
+	});
+	GsmModem.doCall(_phone, 10000);
+	GsmModem.sendATCommand(F("ATH\n"), false);
+};
+
+AlarmClass::AlarmClass() :_clients(LinkedList<AlarmClient *>([](AlarmClient *c){ delete c; }))
 {
 	pinMode(interruptPin, INPUT_PULLUP);
-	attachInterrupt(digitalPinToInterrupt(interruptPin), handleInterrupt, RISING);	
+	attachInterrupt(digitalPinToInterrupt(interruptPin), handleInterrupt, CHANGE);
 }
 
-void AlarmClass::handle() {
-	if (!isSafe())
-		return;
-	if (isInterrupt()){
-		textAll("Alarm sensor!!!");
-		interrupt(false);
+void /*ICACHE_RAM_ATTR*/ AlarmClass::handle() {			
+	if (!isInterrupt()){
+		return;	
 	}
-	/*if (digitalRead(interruptPin)) {
-		
-		digitalWrite(2, LOW);
-		GsmModem.flush();
-		if (GsmModem.sendSMS("+380500784234", "test"))
-			interruptCounter--;
-		digitalWrite(2, HIGH);
-	}*/
-}
-
-void AlarmClass::_cleanBuffers(){
-	for (AlarmMessageBuffer * c : _buffers) {
-		if (c && c->canDelete()) {
-			_buffers.remove(c);
-		}
+	interrupt(false);
+	if (!_safe){
+		digitalWrite(DEFAULT_LED_PIN, HIGH);
+		return;	
 	}
-}
-
-void AlarmClass::textAll(AlarmMessageBuffer * buffer) {
-	if (!buffer) return;
-	buffer->lock(); 
-	for (const auto& c : _clients) {
-		if (c->canSend()) {
-			c->text(buffer);
-		}
+	detachInterrupt(interruptPin);
+	if (_pinInterrupt){
+		callAll();
+		textAll("Alarm open sensor!!!");	
+		//digitalWrite(DEFAULT_LED_PIN, LOW);
+	}else{
+		callAll();
+		textAll("Alarm closed sensor!!!");
+		//digitalWrite(DEFAULT_LED_PIN, HIGH);
 	}
-	buffer->unlock();
-	_cleanBuffers(); 
-}
-
-void AlarmClass::textAll(const char * message, size_t len) {
-	AlarmMessageBuffer * buffer = makeBuffer((uint8_t *)message, len); 
-	textAll(buffer); 
+	attachInterrupt(digitalPinToInterrupt(interruptPin), handleInterrupt, CHANGE);
+	digitalWrite(DEFAULT_LED_PIN, HIGH);
 }
 
 void AlarmClass::textAll(const String &message) {
-	textAll(message.c_str(), message.length());
+	//textAll(message.c_str(), message.length());
+	if(!message) return;
+	for (const auto& c : _clients) {
+		if (c->canSend()) {
+			c->text(message);
+		}
+	}
 }
+
+void AlarmClass::callAll() {
+	for (const auto& c : _clients) {
+		if (c->canSend()) {
+			c->call();
+		}
+	}	
+};
 
 void AlarmClass::_addClient(AlarmClient * client) {
 	_clients.add(client);
@@ -272,7 +156,7 @@ void AlarmClass::fetchMessage(uint8_t index) {
 
 void AlarmClass::fetchCall(String phone) {
 	//static unsigned int count_call;
-	if (Alarm.hashClient(phone)) {
+	if (hashClient(phone)) {
 		//count_call++;
 		//if (count_call > 2){
 			GsmModem.sendATCommand("ATA", true);                // ...отвечаем (поднимаем трубку)	
@@ -296,18 +180,16 @@ void AlarmClass::parseSMS(String msg) {
 	int secondIndex = msgheader.indexOf("\",\"", firstIndex);
 	msgphone = msgheader.substring(firstIndex, secondIndex);
 
-	if(Alarm.hashClient(msgphone)) {// ≈сли телефон в белом списке, то...		 
-		fetchCommand(msgbody, msgphone);                            // ...выполн€ем команду
+	if (hashClient(msgphone)){			// ≈сли телефон в белом списке, то...				 
+		fetchCommand(msgbody);                  // ...выполн€ем команду
+	}else{
+		textAll("In come message from tel:" + msgphone + " "+msgbody);	//отправл€ем чужие сообщени€ 
 	}	
 }
 
 void AlarmClass::parseDTMF(String msg) {
 	if (msg.equals("#")) {
-		if (_msgDTMF.indexOf(_codeOnAlarm)){
-			_safe = true;	
-		}else if (_msgDTMF.indexOf(_codeOffAlarm)){
-			_safe = false;	
-		}
+		fetchCommand(_msgDTMF);                    // ...выполн€ем команду		
 		GsmModem.sendATCommand(F("ATH\n"), false);		
 		_msgDTMF = "";
 	}else {
@@ -315,14 +197,25 @@ void AlarmClass::parseDTMF(String msg) {
 	};
 };
 
-void AlarmClass::fetchCommand(String cmd, String phone) {
-	if (cmd.indexOf(_codeOnAlarm)){
+void AlarmClass::fetchCommand(String cmd) {
+	if (cmd.equals(_codeOnAlarm)){
 		_safe = true;	
-	}else if (cmd.indexOf(_codeOffAlarm)){
+	}else if (cmd.equals(_codeOffAlarm)){
 		_safe = false;
 	}	
 };
 
+bool debounce() {
+	bool current = digitalRead(Alarm.getInterruptPin());
+	if (current != Alarm.getStatusPinInt()) {// —тарое значение отличаетс€ от полученного		                  
+	  delay(10);                                   // ∆дем пока состо€ние стабилизируетс€ - игнорируем дребезг
+	  current = digitalRead(Alarm.getInterruptPin());             // —читываем стабилизированное значение
+	}
+	return current;
+}
+
 void ICACHE_RAM_ATTR handleInterrupt() {
-	Alarm.interrupt(true);
+	Alarm.interrupt(true);	               
+	Alarm.setStatusPinInt(debounce());// ѕолучаем стабилизированное значение
+	digitalWrite(DEFAULT_LED_PIN, LOW);	
 }

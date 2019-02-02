@@ -9,7 +9,7 @@
 //#define DEBUG_BATTERY		/*Для теста*/
 
 #define BATTERY_6V				6
-#define BATTERY_4V				6
+#define BATTERY_4V				4
 #define R1_KOM					470.0f
 #define R2_KOM					75.0f
 #define VREF					1.0f
@@ -18,7 +18,8 @@
 #define CHANEL					A0
 
 /*План питания от батареи*/
-#define PLAN_BATTERY			BATTERY_6V
+//#define PLAN_BATTERY			BATTERY_6V
+#define PLAN_BATTERY			BATTERY_4V
 
 #define CONVERT_V_TO_ADC(v)		(((v * (R2_KOM /(R1_KOM + R2_KOM)))*ADC)/VREF)
 
@@ -28,7 +29,7 @@
 #define MIN_CHG					CONVERT_V_TO_ADC(5.5)		/*Vin 5.5V*/				
 #elif PLAN_BATTERY == BATTERY_4V
 #define MAX_CHG					CONVERT_V_TO_ADC(4.2)		/*Vin 4.2V*/
-#define MIN_CHG					CONVERT_V_TO_ADC(3.3)		/*Vin 3.3V*/
+#define MIN_CHG					CONVERT_V_TO_ADC(3.5)		/*Vin 3.3V*/
 #endif // PLAN_BATTERY == BATTERY_6V
 
 #define CALCULATE_VIN(v)		((v/ADC)/(R2_KOM /(R1_KOM + R2_KOM)))
@@ -58,7 +59,7 @@ public:
 	size_t doInfo(JsonObject& json);
 	void handleBinfo(AsyncWebServerRequest *request);
 	bool isDischarged(){return _isDischarged;};
-	void callDischaged(BatteryHandleDischarged call){_handleDischarged = call;};
+	void onDischaged(BatteryHandleDischarged call){_handleDischarged = call;};
 	void setSMS(bool sms)
 	{
 		_is_sms = sms;

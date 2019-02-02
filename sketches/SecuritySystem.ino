@@ -32,14 +32,14 @@ void setup(){
     gdbstub_init();
     gdbstub_do_break();
 #else
-	Serial.begin(115200);
-	Serial.println("START SIM800L");
+	//Serial.begin(115200);
+	//Serial.println("START SIM800L");
 #endif
 	Memory.init();
-	Alarm._addClient(new AlarmClient("0500784234",true));	
+	Alarm._addClient(new AlarmClient("+380500784234",true));	
 	//Alarm._addClient(new AlarmClient("0500784076"));
 	BATTERY = new BatteryClass();
-	BATTERY->callDischaged([](int charge) {
+	BATTERY->onDischaged([](int charge) {
 		String str = "Заряд батареи низкий: " + String(charge) + "%";
 		//Alarm.textAll(str);
 		//if (GsmModem.sendSMS("+380500784234", str.c_str())){
@@ -62,8 +62,7 @@ void setup(){
 	
 }
 String str = "";
-String msg = "";
-void ICACHE_RAM_ATTR loop() {
+void /*ICACHE_RAM_ATTR*/ loop() {
 	taskController.run();
 	Alarm.handle();
 	if (GsmModem.available()){
@@ -83,9 +82,9 @@ void ICACHE_RAM_ATTR loop() {
 			Alarm.fetchMessage(i);			
 			
 		}else if (str.indexOf(F("UNDER")) != -1){
-			str = "";
+			Alarm.textAll(str);
 		}else if (str.startsWith(F("NO CARRIER"))){
-			msg = "";
+			Alarm._msgDTMF = "";
 		}else{
 			if (str.indexOf(F("SMS ready"))){
 				digitalWrite(DEFAULT_LED_PIN, HIGH);	

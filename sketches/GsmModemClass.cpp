@@ -29,14 +29,17 @@ void GsmModemClass::start() {
 	
 	reset();
 	echoOff();
-	while (!_checkResponse(OK_, 500)) {
+	while (!_checkResponse(OK_, 1000)) {
 		this->print(F("AT+CLIP=1\r"));
 	}
-	while (!_checkResponse(OK_, 500)) {
+	while (!_checkResponse(OK_, 1000)) {
 		this->println("AT+CMGF=1;&W");
 	}
-	while (!_checkResponse(OK_, 500)){
+	while (!_checkResponse(OK_, 1000)){
 		this->println("AT+DDET=1");
+	}
+	while (!_checkResponse(OK_, 1000)) {
+		this->println("AT+CLCC=1");
 	}
 }
 
@@ -49,13 +52,7 @@ void GsmModemClass::reset() {
 	delay(1000);
 	digitalWrite(RESET_PIN, HIGH);
 	delay(1000);
-
-	// Modul kendine geldi mi onu bekle
-	//this->print(F("AT\r"));
-	//this->print((char)26);
-	//while(!_checkResponse(OK_, 2000)) {
-		//this->print(F("AT\r"));
-	//}
+	
 	while (!_checkResponse(OK_,2000)) {
 		this->print(F("AT\r"));
 	}
@@ -172,9 +169,9 @@ bool /*ICACHE_RAM_ATTR*/ GsmModemClass::sendSMS(const char* number, const char* 
 		this->print(text);
 		this->print("\r");
 		//delay(1000);
-		_checkResponse(OK_,1000);
+		//_checkResponse(OK_,1000);
 		this->print((char)26);		
-		return _checkResponse(OK_, 5000);
+		return _checkResponse(OK_, 10000);
 	}
 	return false;
 }
@@ -186,9 +183,9 @@ bool GsmModemClass::sendSMS(const char* number, uint8_t* text) {
 	if(_checkResponse(READY_TO_RECEIVE, 20000)) {
 		this->print(String((char*)text));
 		this->print("\r");
-		_checkResponse(OK_, 1000);
+		//_checkResponse(OK_, 1000);
 		this->print((char)26);
-		return _checkResponse(OK_, 5000);
+		return _checkResponse(OK_, 10000);
 	}
 	return false;
 }
@@ -197,12 +194,36 @@ String GsmModemClass::getSMS(uint8_t index){
 	return sendATCommand("AT+CMGR=" + (String)index + ",1", true);
 }
 
+int ICACHE_RAM_ATTR GsmModemClass::doCall(String phone, uint16_t timeout) {
+	this->print("ATD");     // command to send sms
+	this->print(phone);
+	this->print(";\n");
+	String str = "";
+	int status = -1;
+	uint64_t timeOld = millis();	
+	while ((millis() < timeOld + timeout)){
+		str = _waitResponse(1000);
+		int index = str.indexOf(F("+CLCC:"));
+		if (index != -1){
+			status = str.substring(index + 11, index + 12).toInt();			
+			switch (status){
+			case 3:
+				return status;
+			default:
+				continue;
+			}
+		}
+	}
+	return status;	
+};
+
 bool GsmModemClass::_checkResponse(enum_ask_t ask, uint16_t timeout){	
 	unsigned long t = millis();
 	while(millis() < t + timeout){
 		//count++;
 		if(this->available()){
-			String tempData = this->_readSerialUtil('\n', timeout);   // reads the response			
+			String tempData = this->_readSerialUtil('\n', timeout);   // reads the response	
+			//String tempData = this->_readSerial(timeout);    // reads the response
 			if (tempData.indexOf(_responseInfo[ask]) != -1)
 				return true;
 		/*
@@ -232,8 +253,7 @@ String /*ICACHE_RAM_ATTR*/ GsmModemClass::_readSerialUtil(char terminator, uint1
 	uint64_t timeOld = millis();
 	String tempData = "";
 	while (!this->available() && !(millis() > timeOld + timeout)) {
-		delay(13);
-		ESP.wdtFeed();
+		delay(1);
 	}
 	if (this->available()){
 		
@@ -242,7 +262,7 @@ String /*ICACHE_RAM_ATTR*/ GsmModemClass::_readSerialUtil(char terminator, uint1
 		while (c >= 0 && c != terminator && !(millis() > (timeOld + timeout))) {
 			tempData += (char) c;
 			c = timedRead();
-			ESP.wdtFeed();
+			delay(1);
 		}
 	return tempData;		
 	}
@@ -265,7 +285,7 @@ String GsmModemClass::_readSerial() {
 	return tempData;	
 }
 
-String GsmModemClass::_readSerial(uint32_t timeout) {	
+String ICACHE_RAM_ATTR GsmModemClass::_readSerial(uint32_t timeout) {	
 	String tempData = "";
 	uint64_t timeOld = millis();
 	while (this->available() && !(millis() > (timeOld + timeout))) {
