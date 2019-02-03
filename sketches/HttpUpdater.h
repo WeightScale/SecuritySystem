@@ -1,7 +1,7 @@
 #pragma once
 #include <ESPAsyncWebServer.h>
 
-const char successResponse[] PROGMEM = R"(<meta http-equiv='refresh' content='15;URL=/'>РћР±РЅРѕРІР»РµРЅРёРµ СѓСЃРїРµС€РЅРѕ! РќРµ РІС‹РєР»СЋС‡Р°Р№С‚Рµ РїРѕРєР° РЅРµ РїРµСЂРµРіСЂСѓР·РёС‚СЃСЏ...)";
+const char successResponse[] PROGMEM = R"(<meta http-equiv='refresh' content='15;URL=/'>Обновление успешно! Не выключайте пока не перегрузится...)";
 
 const char serverIndex[] PROGMEM = R"(<!DOCTYPE html><html> <head> <meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no'/> <link rel='stylesheet' type='text/css' href='global.css'> </head> <body> <form method='POST' action='' enctype='multipart/form-data'> <input type='file' name='update'> <input type='submit' value='Update'> </form> </body></html>)";
 

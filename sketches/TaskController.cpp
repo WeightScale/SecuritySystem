@@ -25,12 +25,19 @@ void TaskController::run(){
 	int checks = 0;
 	for(int i = 0; i < MAX_TASKS && checks <= cached_size; i++){
 		// Object exists? Is enabled? Timeout exceeded?
-		if(task[i]){
+		if(!task[i])
+			continue;
+		checks++;
+		if (!task[i]->shouldRun(time))
+			continue;
+		task[i]->run();
+		
+		/*if(task[i]){
 			checks++;
 			if(task[i]->shouldRun(time)){
 				task[i]->run();
 			}
-		}
+		}*/
 	}
 
 	// ThreadController extends Thread, so we should flag as runned thread

@@ -7,7 +7,7 @@
 #include "Alarm.h"
 
 //Comment out the definition below if you don't want to use the ESP8266 gdb stub.
-#define ESP8266_USE_GDB_STUB
+//#define ESP8266_USE_GDB_STUB
 
 #ifdef ESP8266_USE_GDB_STUB
 	#include <GDBStub.h>
@@ -36,7 +36,7 @@ void setup(){
 	//Serial.println("START SIM800L");
 #endif
 	Memory.init();
-	Alarm._addClient(new AlarmClient("+380500784234",true));	
+	Alarm._addClient(new AlarmClient("+380500784234",true,true));	
 	//Alarm._addClient(new AlarmClient("0500784076"));
 	BATTERY = new BatteryClass();
 	BATTERY->onDischaged([](int charge) {
@@ -86,7 +86,7 @@ void /*ICACHE_RAM_ATTR*/ loop() {
 		}else if (str.startsWith(F("NO CARRIER"))){
 			Alarm._msgDTMF = "";
 		}else{
-			if (str.indexOf(F("SMS ready"))){
+			if (str.indexOf(F("SMS ready"))!=-1){
 				digitalWrite(DEFAULT_LED_PIN, HIGH);	
 			}
 			str = "";

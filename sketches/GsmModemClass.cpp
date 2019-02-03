@@ -23,13 +23,18 @@ void GsmModemClass::start() {
 
 	if (LED_FLAG) {
 		pinMode(LED_PIN, OUTPUT);
+		digitalWrite(LED_PIN, LOW);
 	}
 
 	_buffer.reserve(BUFFER_RESERVE_MEMORY);
 	
 	reset();
 	echoOff();
-	while (!_checkResponse(OK_, 1000)) {
+	while (sendATCommand(F("AT+CLIP=1\r"), true).indexOf("OK") == -1) {};
+	while (sendATCommand(F("AT+CMGF=1;&W"), true).indexOf("OK") == -1) {};
+	while (sendATCommand(F("AT+DDET=1"), true).indexOf("OK") == -1) {};
+	while (sendATCommand(F("AT+CLCC=1"), true).indexOf("OK") == -1) {};
+	/*while (!_checkResponse(OK_, 1000)) {
 		this->print(F("AT+CLIP=1\r"));
 	}
 	while (!_checkResponse(OK_, 1000)) {
@@ -40,26 +45,30 @@ void GsmModemClass::start() {
 	}
 	while (!_checkResponse(OK_, 1000)) {
 		this->println("AT+CLCC=1");
+	}*/
+	
+	
+	
+	if (LED_FLAG) {
+		digitalWrite(LED_PIN, HIGH);
 	}
 }
 
 void GsmModemClass::reset() {
-	if (LED_FLAG) {
-		digitalWrite(LED_PIN, HIGH);
-	}
+	//if (LED_FLAG) {
+	//	digitalWrite(LED_PIN, HIGH);
+	//}
 
 	digitalWrite(RESET_PIN, LOW);
 	delay(1000);
 	digitalWrite(RESET_PIN, HIGH);
 	delay(1000);
 	
-	while (!_checkResponse(OK_,2000)) {
-		this->print(F("AT\r"));
-	}
-
-	if (LED_FLAG) {
-		digitalWrite(LED_PIN, LOW);
-	}
+	while (sendATCommand(F("AT\r"), true).indexOf("OK") == -1) {};
+	
+	//while (!_checkResponse(OK_,2000)) {
+	//	this->print(F("AT\r"));
+	//}	
 }
 
 // SIGNAL QUALTY - 0-31 | 0-> poor | 31 - Full | 99 -> Unknown

@@ -41,17 +41,20 @@ private:
 	//LinkedList<AlarmMessage *> _messageQueue;
 	AlarmMessage * _message;
 	void _queueMessage(AlarmMessage *dataMessage);
-	void _runQueue();
-	
+	void _runQueue();	
 	bool _send;
+	bool _root = false;
 public:
-	AlarmClient(char * p, bool s=true): _phone(p),_send(s){}	
+	AlarmClient(char * p, bool s=true, bool r=false): _phone(p),_send(s),_root(r){}
+	AlarmClient(const String p, bool s = true) : _phone(p), _send(s) {}
 	~AlarmClient() {if (_message != NULL)free(_message); };
-	char *_phone;
+	const String _phone;
 	bool canSend(){return _send;}; //ack is not pending
 	void text(const char * message, size_t len);
 	void text(const String &message);
 	void call();
+	bool root() {return _root;};
+	void root(bool root) {_root = root;};
 };
 
 class AlarmClass{
@@ -65,11 +68,13 @@ private:
 	LinkedList<AlarmClient *> _clients;
 	String _codeOnAlarm = "1234";
 	String _codeOffAlarm = "4321";
+	AlarmClient *_curentClient;
 	
 public:
 	AlarmClass();
 	String _msgDTMF = "";
-	bool hashClient(String phone);
+	AlarmClient *hashClient(String phone);
+	//AlarmClient getClient(String phone);
 	bool isInterrupt(){return _isInterrupt;};
 	void interrupt(bool i){_isInterrupt = i;};
 	bool isSafe(){return _safe;};
@@ -80,11 +85,12 @@ public:
 	void callAll();
 	void _cleanBuffers();
 	void _addClient(AlarmClient * client); 
+	void _removeClient(AlarmClient *client);
 	void fetchMessage(uint8_t index);
 	void fetchCall(String phone);
 	void parseSMS(String msg);
 	void parseDTMF(String msg);
-	void fetchCommand(String cmd);
+	bool fetchCommand(String cmd, String incom_phone);
 	void setStatusPinInt(bool pin) {_pinInterrupt = pin; };
 	bool getStatusPinInt() {return _pinInterrupt;};
 	byte getInterruptPin() {return interruptPin;};
@@ -92,3 +98,4 @@ public:
 
 extern AlarmClass Alarm;
 extern void handleInterrupt();
+extern bool /*ICACHE_RAM_ATTR*/ debounce();

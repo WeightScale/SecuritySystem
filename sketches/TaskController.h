@@ -3,7 +3,7 @@
 #include "Task.h"
 #include "inttypes.h"
 
-#define MAX_TASKS		15
+#define MAX_TASKS		5
 
 class TaskController: public Task{
 	protected:
