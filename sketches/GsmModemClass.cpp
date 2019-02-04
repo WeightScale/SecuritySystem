@@ -203,20 +203,22 @@ String GsmModemClass::getSMS(uint8_t index){
 	return sendATCommand("AT+CMGR=" + (String)index + ",1", true);
 }
 
-int ICACHE_RAM_ATTR GsmModemClass::doCall(String phone, uint16_t timeout) {
+int /*ICACHE_RAM_ATTR*/ GsmModemClass::doCall(String phone, uint16_t timeout) {
 	this->print("ATD");     // command to send sms
 	this->print(phone);
 	this->print(";\n");
 	String str = "";
 	int status = -1;
 	uint64_t timeOld = millis();	
-	while ((millis() < timeOld + timeout)){
+	while (millis() < (timeOld + timeout)){
 		str = _waitResponse(1000);
 		int index = str.indexOf(F("+CLCC:"));
 		if (index != -1){
 			status = str.substring(index + 11, index + 12).toInt();			
 			switch (status){
 			case 3:
+				timeOld = millis();
+				while (millis() < (timeOld + 3000)) {delay(1);}
 				return status;
 			default:
 				continue;
@@ -294,7 +296,7 @@ String GsmModemClass::_readSerial() {
 	return tempData;	
 }
 
-String ICACHE_RAM_ATTR GsmModemClass::_readSerial(uint32_t timeout) {	
+String /*ICACHE_RAM_ATTR*/ GsmModemClass::_readSerial(uint32_t timeout) {	
 	String tempData = "";
 	uint64_t timeOld = millis();
 	while (this->available() && !(millis() > (timeOld + timeout))) {

@@ -1,8 +1,8 @@
 #include "Memory.h"
 #include "Battery.h"
 
-void MemoryClass::init() {
-	//SPIFFS.begin();		
+void /*ICACHE_RAM_ATTR*/ MemoryClass::init() {
+	SPIFFS.begin();		
 	begin(sizeof(MyEEPROMStruct));
 	if (percentUsed() >= 0) {
 		get(0, eeprom);

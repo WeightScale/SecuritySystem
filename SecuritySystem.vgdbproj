@@ -28,6 +28,7 @@
         <string>sketches\Alarm.h</string>
         <string>sketches\HttpUpdater.h</string>
         <string>sketches\alarm_config.h</string>
+        <string>sketches\tools.h</string>
       </OtherFiles>
     </ProjectModeSettings>
   </Project>

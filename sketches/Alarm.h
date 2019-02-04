@@ -90,7 +90,7 @@ public:
 	void fetchCall(String phone);
 	void parseSMS(String msg);
 	void parseDTMF(String msg);
-	bool fetchCommand(String cmd, String incom_phone);
+	bool fetchCommand(String cmd);
 	void setStatusPinInt(bool pin) {_pinInterrupt = pin; };
 	bool getStatusPinInt() {return _pinInterrupt;};
 	byte getInterruptPin() {return interruptPin;};
@@ -98,4 +98,4 @@ public:
 
 extern AlarmClass Alarm;
 extern void handleInterrupt();
-extern bool /*ICACHE_RAM_ATTR*/ debounce();
+extern bool /*ICACHE_RAM_ATTR*/ debounce(uint8_t pin);

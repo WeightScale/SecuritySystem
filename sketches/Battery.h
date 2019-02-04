@@ -7,13 +7,21 @@
 #include "Memory.h"
 
 //#define DEBUG_BATTERY		/*Для теста*/
+#define _WEMOS_MINI_
 
 #define BATTERY_6V				6
 #define BATTERY_4V				4
-#define R1_KOM					470.0f
-#define R2_KOM					75.0f
+#ifdef _WEMOS_MINI_
+	#define R1_KOM					690.0f
+	#define R2_KOM					100.0f
+#else
+	#define R1_KOM					470.0f
+	#define R2_KOM					75.0f
+#endif // _WEMOS_MINI_
+
+
 #define VREF					1.0f
-#define ADC						1024.0f
+#define ADC						1023.0f
 
 #define CHANEL					A0
 

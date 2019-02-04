@@ -6,6 +6,12 @@
 #define USER_MAX 5
 
 typedef struct {
+	bool autoIp;
+	char lanIp[16];
+	char gateway[16];
+	char subnet[16];
+	char wSSID[33];
+	char wKey[33];
 	char apSSID[16];
 	char hostUrl[0xff];
 	int hostPin;

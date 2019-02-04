@@ -36,7 +36,8 @@ void setup(){
 	//Serial.println("START SIM800L");
 #endif
 	Memory.init();
-	Alarm._addClient(new AlarmClient("+380500784234",true,true));	
+	Alarm._addClient(new AlarmClient("+380500784234",true,true));
+	Alarm._addClient(new AlarmClient("+380950950102",true,false));
 	//Alarm._addClient(new AlarmClient("0500784076"));
 	BATTERY = new BatteryClass();
 	BATTERY->onDischaged([](int charge) {
@@ -46,32 +47,28 @@ void setup(){
 		//	BATTERY->setSMS(true);		
 		//}
 	});
-	taskController.add(BATTERY);
-	
-	//pinMode(LED_BUILTIN, OUTPUT);
-	
 	
 	GsmModem.start();	
 	
-	//String str = GsmModem.moduleModel();
-	//str = GsmModem.signalQuality();	
-	//bool f = GsmModem.enterSleepMode();
-	//delay(10000);
-	//f = GsmModem.disableSleep();
 	server.setup();
-	
+	taskController.add(&taskConnectWiFi);
+	taskController.add(BATTERY);
 }
 String str = "";
+byte count_ring = 0;
 void /*ICACHE_RAM_ATTR*/ loop() {
 	taskController.run();
 	Alarm.handle();
 	if (GsmModem.available()){
 		str = GsmModem._readSerial();
-		if (str.indexOf(F("RING")) != -1) {			
-			str = str.substring(str.indexOf(F("+CLIP:")) + 6, str.indexOf(","));
-			str.replace("\"", "");
-			str.trim();
-			Alarm.fetchCall(str);			
+		if (str.indexOf(F("RING")) != -1) {
+			if ((count_ring++) > 1){
+				str = str.substring(str.indexOf(F("+CLIP:")) + 6, str.indexOf(","));
+				str.replace("\"", "");
+				str.trim();
+				Alarm.fetchCall(str);	
+				count_ring = 0;
+			}			
 		}
 		else if (str.indexOf(F("+DTMF:")) != -1) {
 			str.trim();
@@ -85,6 +82,7 @@ void /*ICACHE_RAM_ATTR*/ loop() {
 			Alarm.textAll(str);
 		}else if (str.startsWith(F("NO CARRIER"))){
 			Alarm._msgDTMF = "";
+			count_ring = 0;
 		}else{
 			if (str.indexOf(F("SMS ready"))!=-1){
 				digitalWrite(DEFAULT_LED_PIN, HIGH);	
