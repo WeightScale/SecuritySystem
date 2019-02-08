@@ -96,66 +96,50 @@ String GsmModemClass::moduleModel() {
 	return _buffer;
 }
 
-bool GsmModemClass::setFullMode() {
+bool /*ICACHE_RAM_ATTR*/ GsmModemClass::setFullMode() {
 	//This set the device to full funcionality - AT+CFUN
 	bool nowReady = false;
-	this->print(F("AT+CFUN=1\r"));
-	if(_checkResponse(OK_,3000))
-		nowReady = true;
-	// Let's confirm if this was valid
-	//_buffer = _readSerial(20000);    // timeout 10s
-	//if((_buffer.indexOf("OK") == -1) || (_buffer.indexOf("READY") == -1))
-	//	nowReady = true;
-	delay(10);
-	// sometimes some excess data usually come out
-	_buffer = _readSerial(3000);   // timeout 10s 
+	String str = sendATCommand(F("AT+CFUN?\r"), true);
+	int index = str.indexOf("CFUN:");
+	index = str.substring(index + 6, index + 7).toInt();
+	if (index == 0) {
+		this->print(F("AT+CFUN=1\r"));
+		str = _checkResponse("OK", 10000);
+		if (str.indexOf("READY") != -1)
+			nowReady = true;
+		str = _checkResponse("Call Ready", 20000);
+	}else
+		return true;
 	return nowReady;
-	//if(nowReady)	 
-	//	return true;
-	//else
-	//	return false;
 }
 
-bool GsmModemClass::enterSleepMode() {
-	// This set the device into a good sleep mode - AT+CFUN=0 and AT+CSCLK
-	 this->print("AT+CFUN=0\r\n");
-	//_buffer = _readSerial(10000);
-	//_buffer = _readSerial(10000);
-	//if (_buffer.indexOf("NOT_READY") == -1)	
-	//	return false;
-	if (!_checkResponse(NOT_READY, 3000)) {
-		this->print("AT+CFUN=0\r\n");
-		if (!_checkResponse(NOT_READY, 3000))
+bool /*ICACHE_RAM_ATTR*/ GsmModemClass::enterSleepMode() {	
+	String str = sendATCommand(F("AT+CFUN?\r"), true);
+	int index = str.indexOf("CFUN:");
+	index = str.substring(index + 6, index + 7).toInt();
+	if (index == 1){
+		this->print(F("AT+CFUN=0\r"));
+		str = _checkResponse("OK",10000);
+		if (str.indexOf("NOT READY") == -1)
 			return false;
-	}	 
-	delay(50);  // just chill small	
-	// The GSM will send an OK response again
-	//result = _checkResponse(5000);
-	//if (result != OK)
-	//	return false;
-	delay(50);
-	this->print("AT+CSCLK=2\r\n");  // enable automatic sleep
-	if (!_checkResponse(OK_, 3000))
+	}
+	if(sendATCommand(F("AT+CSCLK=2\r\n"), true).indexOf("OK") == -1)
 		return false;	 	 
 	return true;
 }
  
-bool GsmModemClass::disableSleep() {
+bool /*ICACHE_RAM_ATTR*/ GsmModemClass::disableSleep() {
 	//This mode disable sleep mode - AT+CSLK=0
 	// first we need to send something random for as long as 100ms
 	this->print(F("FF\r"));
-	delay(120);  // this is between waking charaters and next AT commands
-	//_buffer = _readSerial(1000);    // just incase something pops up
-	this->print(F("AT+CSCLK=0\r"));
-	//_buffer = _readSerial(20000);
-	if(!_checkResponse(OK_, 3000))
+	delay(120);  // this is between waking charaters and next AT commands	
+	if(sendATCommand(F("AT+CSCLK=0\r"), true).indexOf("OK") == -1)
 		return false;
 	delay(100);  // just chill for 100ms for things to stablize
 	if(!setFullMode())
 		return false;
 	//NOTE - After disabling sleep a good idea is to make the device to flush the serial
 	return true;
-	 
 }
 
 // ECHO OFF
@@ -168,6 +152,25 @@ bool GsmModemClass::echoOff() {
 bool GsmModemClass::echoOn() {
 	this->print(F("ATE1\r"));	
 	return _checkResponse(OK_, 3000);
+}
+
+bool /*ICACHE_RAM_ATTR*/ GsmModemClass::isReady() {
+	this->print(F("AT+CCALR?\r"));	
+	String str = "";
+	int status = -1;
+	uint64_t timeOld = millis();	
+	while (millis() < (timeOld + 2000)) {
+		str = _waitResponse(1000);
+		int index = str.indexOf(F("CCALR:"));
+		if (index == -1)
+			continue;
+		status = str.substring(index + 7, index + 8).toInt();
+		if (status != 1) {
+			return false;	
+		}
+		return true;		
+	}
+	return false;
 }
 
 bool /*ICACHE_RAM_ATTR*/ GsmModemClass::sendSMS(const char* number, const char* text) {			
@@ -203,7 +206,7 @@ String GsmModemClass::getSMS(uint8_t index){
 	return sendATCommand("AT+CMGR=" + (String)index + ",1", true);
 }
 
-int /*ICACHE_RAM_ATTR*/ GsmModemClass::doCall(String phone, uint16_t timeout) {
+void /*ICACHE_RAM_ATTR*/ GsmModemClass::doCall(String phone, uint16_t timeout) {
 	this->print("ATD");     // command to send sms
 	this->print(phone);
 	this->print(";\n");
@@ -213,20 +216,32 @@ int /*ICACHE_RAM_ATTR*/ GsmModemClass::doCall(String phone, uint16_t timeout) {
 	while (millis() < (timeOld + timeout)){
 		str = _waitResponse(1000);
 		int index = str.indexOf(F("+CLCC:"));
-		if (index != -1){
-			status = str.substring(index + 11, index + 12).toInt();			
-			switch (status){
-			case 3:
-				timeOld = millis();
-				while (millis() < (timeOld + 3000)) {delay(1);}
-				return status;
-			default:
-				continue;
-			}
-		}
+		if (index == -1)
+			continue;
+		status = str.substring(index + 11, index + 12).toInt();
+		if (status == 3){
+			timeOld = millis();
+			while (millis() < (timeOld + 6000)) {delay(1); }
+			break;	
+		}		
 	}
-	return status;	
+	_handleAccept(status);
 };
+
+String GsmModemClass::_checkResponse(String ask, uint16_t timeout){
+	unsigned long t = millis();
+	String tempData = "";
+	while (millis() < t + timeout) {
+		//count++;
+		if(this->available()) {
+			tempData += this->_readSerial(timeout);    // reads the response	
+			if(tempData.indexOf(ask) != -1)
+				break;				  
+		}
+		delay(1);
+	}
+	return tempData;
+}
 
 bool GsmModemClass::_checkResponse(enum_ask_t ask, uint16_t timeout){	
 	unsigned long t = millis();

@@ -17,15 +17,17 @@ typedef struct {
 	int hostPin;
 	char login[16];
 	char password[16];
+	char login_alarm[16];
+	char password_alarm[16];
 	int bat_max;
 	int bat_min;
 } settings_t;
 
-typedef struct {
-	
-		char name[16];
-		char phone[14];
-		bool send = false;
+typedef struct {	
+	char name[16];
+	char phone[14];
+	bool send = false;
+	bool root = false;
 }user_t;
 
 class MemoryClass : protected EEPROMClass {

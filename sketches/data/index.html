@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+    <meta charset='UTF-8'>
+    <meta name="theme-color" content="#abc0df"/>
+    <meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no' />
+    <meta http-equiv='Cache-Control' content='no-cache, no-store, must-revalidate' />
+    <meta http-equiv='Pragma' content='no-cache'/>
+    <title>ALARM SYSTEM</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel='stylesheet' type='text/css' href='global.css'>
+    <link rel='shortcut icon' href='favicon.png' type='image/png'>
+    <style>
+        #ws_id {
+            background: #fff;
+            font-size: 80px;
+            font-family: Arial, sans-serif;
+            color: #618ad2;
+            box-shadow: 1px 4px 8px 0 #585858;
+        }
+        .td,
+        .th{
+            padding: 3px;
+            border: 1px solid #979ab5;
+        }
+        .th {
+            background: #a0a0a0;
+            color: white;
+        }
+
+        #tw_id {
+            color: #618ad2;
+            font-size: 30px;
+            font-weight: bold;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        input {
+            font-size: 20px;
+            text-align: center;
+        }
+        #id_msg{
+            color: white;
+            font-size: 20px;
+        }
+        .id_alr{
+            display: none;
+            position: absolute;
+            top: 10%;
+            margin-left: 15px;
+            width: 280px;
+            padding: 10px;
+            border-radius: 10px;
+            background: #ff7c00;
+        }
+        .switch {
+          width: 180px;
+          height: 50px;
+          position: relative;
+        }
+        .switch input {
+          /* Вначале делаем его равным размеру контейнера, в котором он находится */
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          /* Затем, перемещаем его вверх, относительно других элементов */
+          z-index: 100;
+          /* Делаем его невидимым */
+          opacity: 0;
+          /* А это для эргономичности */
+          cursor: pointer;
+        }
+        .switch label {
+          display: block;
+          width: 100%;
+          height: 100%;
+          position: relative;
+          background: #a5a39d;
+          border-radius: 40px;
+          box-shadow:
+          inset 0 3px 8px 1px rgba(0,0,0,0.2), 0 1px 0 rgba(255,255,255,0.5);
+        }
+        .switch label:after {
+          content: "";
+          position: absolute;
+          z-index: -1;
+          top: -8px; right: -8px; bottom: -8px; left: -8px;
+          border-radius: inherit;
+          background: #ccc; /* Fallback */
+          background: linear-gradient(#f2f2f2, #ababab);
+          box-shadow: 0 0 10px rgba(0,0,0,0.3), 0 1px 1px rgba(0,0,0,0.25);
+        }
+        .switch label:before {
+          content: "";
+          position: absolute;
+          z-index: -1;
+          top: -18px; right: -18px; bottom: -18px; left: -18px;
+          border-radius: inherit;
+          background: #eee; /* Fallback */
+          background: linear-gradient(#e5e7e6, #eee);
+          box-shadow: 0 1px 0 rgba(255,255,255,0.5);
+          -webkit-filter: blur(1px); /* Smooth trick */
+          filter: blur(1px); /* Future-proof */
+        }
+        .switch label i {
+          display: block;
+          height: 100%;
+          width: 60%;
+          position: absolute;
+          left: 0;
+          top: 0;
+          z-index: 2;
+          border-radius: inherit;
+          background: #b2ac9e; /* Fallback */
+          background: linear-gradient(#f7f2f6, #b2ac9e);
+          box-shadow:
+          inset 0 1px 0 white,0 0 8px rgba(0,0,0,0.3),0 5px 5px rgba(0,0,0,0.2);
+        }
+        .switch label i:after {
+          content: "";
+          position: absolute;
+          left: 15%;
+          top: 25%;
+          width: 70%;
+          height: 50%;
+          background: #d2cbc3; /* Fallback */
+          background: linear-gradient(#cbc7bc, #d2cbc3);
+          border-radius: inherit;
+        }
+        .switch label i:before {
+          content: "off";
+          position: absolute;
+          top: 50%;
+          right: -50%;
+          margin-top: -12px;
+          color: #666; /* Fallback */
+          color: rgba(0,0,0,0.4);
+          font-style: normal;
+          font-weight: bold;
+          font-family: Helvetica, Arial, sans-serif;
+          font-size: 24px;
+          text-transform: uppercase;
+          text-shadow: 0 1px 0 #bcb8ae, 0 -1px 0 #97958e;
+        }
+        .switch input:checked ~ label { /* Background */
+          background: #9abb82;
+        }
+        .switch input:checked ~ label i { /* Toggle */
+          left: auto;
+          right: -1%;
+        }
+        .switch input:checked ~ label i:before { /* On/off */
+          content: "on";
+          right: 115%;
+          color: #82a06a;
+          text-shadow: 0 1px 0 #afcb9b, 0 -1px 0 #6b8659;
+        }
+    </style>
+    <script>
+        var w,d = document,ob = [];
+        window.alert = function(m,c,t){
+            a = d.getElementById('id_alr');
+            b = d.getElementById('id_alr_btn');
+            d.getElementById("id_msg").innerText = m;
+            a.style.display = 'inline';
+            a.style.visibility = 'visible';
+            setTimeout(function(){
+                a.style.display = 'none';
+            },t);
+            b.onclick = c;
+            b.focus();
+        };
+        function SS(h, p, fm, fe) {
+            let tw, ws;
+            this.snd = function(c) {
+                ws.send(c);
+            };
+            this.create = function() {
+                this.oS();
+            };
+            this.close = function() {
+                ws.close();
+            };
+            this.wT = function() {
+                clearTimeout(tw);
+                tw = setTimeout(function() {
+                    w.create();
+                }, 7000);
+            };
+            this.oS = function() {
+                ws = new WebSocket(h, p);
+                ws.onopen = function () {
+                    d.body.style.visibility = 'visible';
+                    ws.send("{'cmd':'status'}");
+                };
+                ws.onclose = function() {
+                    fe();
+                };
+                ws.onerror = function() {
+                    fe();
+                };
+                ws.onmessage = function(e) {
+                    fm(JSON.parse(e.data));
+                }
+
+            };
+        }
+
+        function cL(p, a) {
+            let sum = 0,t = "<th class='th'>ВРЕМЯ</th><th class='th'>ВЕС</th>",tr = d.createElement('tr');
+            d.getElementById(p).innerHTML = '';
+            tr.innerHTML = t;
+            d.getElementById(p).appendChild(tr);
+            a.forEach(function(o) {
+                var row = d.createElement('tr'),w = parseFloat(o.v);
+                sum += w;
+                row.innerHTML = "<td style='color: white' class='td'>" + o.d.split("-")[1] + "</td><td width='auto' class='td'>" + w.toFixed(o.a) + "</td>";
+                d.getElementById(p).appendChild(row);
+            });
+            var row = d.createElement('tr');
+            row.innerHTML = "<td align='right' style='color: white' class='td'>ИТОГО:</td><td width='auto' class='td'><b/>" + sum.toFixed(a[0].a) + "</td>";
+            d.getElementById(p).appendChild(row);
+        }
+        window.onload = function() {
+            onBodyLoad();
+        };
+
+        function pC(c) {
+            if (c.hasOwnProperty('cmd')) {
+                switch (c.cmd) {
+                    case 'status':
+                         try {
+                            for (e in c) {
+                                try {
+                                    if (d.getElementById(e).type === 'checkbox') {
+                                        d.getElementById(e).checked = c[e];
+                                    }else if(d.getElementById(e).type === 'input'){
+                                        d.getElementById(e).value = c[e];
+                                    } else d.getElementById(e).innerHTML = c[e];
+                                } catch (e) {}
+                            }
+                        } catch (e) {
+                            alert("ОШИБКА " + e.toString());
+                        }
+                        break;
+                    case 'swt':
+                        var date = new Date(),dt = date.toLocaleDateString() + "-" + date.toLocaleTimeString();
+                        e.d = dt;
+                        ob.unshift(e);
+                        if (ob.length > 5) ob.pop();
+                        cL('tw_id', ob);
+                        break;
+                    case 'safe':
+                        d.getElementById('safe').checked = c.val;
+                        break;
+                    case 'dchg':
+                        alert("Батарея разряжена!!! Поменяйте батарею.",function (){
+                            d.getElementById('id_alr').style.display = 'none';
+                        },10000);
+                        break;
+                    case 'cls':
+                        if(e.code === 1111){
+                            alert("Лимит клиентов",function (){
+                                d.getElementById('id_alr').style.display = 'none';
+                            },5000);
+                            d.body.style.visibility='hidden';
+                        }
+                        w.close();
+                        break;
+                }
+            }
+        }
+
+        function onBodyLoad() {
+            w = new SS('ws://' + d.location.host + '/ws', ['arduino'], pC, function() {
+                go();
+                w.wT();
+            });
+            w.oS();
+        }
+        
+        function enableAlarm(check){
+          var o = JSON.parse('{"cmd":"safe","val":false}');
+          o.val = check.checked;
+          d.getElementById('safe').checked = ~check.checked;
+          w.snd(JSON.stringify(o));
+        }
+    </script>
+</head>
+
+<body style='visibility: hidden'>
+<div align='right' class="id_alr" id='id_alr'>
+    <p id='id_msg'></p>
+    <input class="btn--s" type='button' id='id_alr_btn' value='Ok'>
+</div>
+<table style="width: 100%">
+    <tr style="text-align: left">
+        <td><img alt='' src='warning.png' style='height: 42px;' /></td>
+        <td></td>
+        <td><h3 style="text-align:right" id='brand_name'>scale.in.ua</h3></td>
+    </tr>
+</table>
+<hr>
+<table>
+  <tr>
+    <td id='tw_id'>охрана</td><td ><div class="switch"><input id='safe' type="checkbox" onclick='enableAlarm(this);'><label><i></i></label></div></td>
+  </tr>
+</table>
+<br>
+<span style='font-size: small; font-weight: bold; color: #626262'>
+<table>
+  <tr> 
+    <td >Сенсор:</td><td id='sensor'/> 
+    </tr>
+  <tr> 
+    <td>Батарея:</td><td id='bat'/> 
+  </tr>
+</table>
+</span>
+<br>
+<table>
+    <tr>
+        <td>
+            <a href='/settings.html'><img src='set.png' alt="настройки"></a>
+        </td>
+    </tr>
+</table>
+<hr>
+<footer align='center'>2018 © Powered by www.scale.in.ua</footer>
+</body>
+
+</html>

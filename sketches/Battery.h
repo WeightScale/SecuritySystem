@@ -58,8 +58,8 @@ public:
 	BatteryClass();
 	~BatteryClass() {};
 	int fetchCharge();		
-	void setCharge(unsigned int ch){_charge = ch; };
-	unsigned int getCharge(){return _charge;};
+	void charge(unsigned int ch){_charge = ch; };
+	unsigned int charge(){return _charge;};
 	void setMax(int m){_max = m; };	
 	void setMin(int m){_min = m; };	
 	int getMax(){return _max;};

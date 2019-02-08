@@ -1,6 +1,8 @@
 #pragma once
 #include <Arduino.h>
 #include <StringArray.h>
+#include <ArduinoJson.h>
+#include "Task.h"
 #define DEFAULT_INT_PIN 13
 #define AL_MAX_QUEUED_MESSAGES 8
 
@@ -42,9 +44,13 @@ private:
 	AlarmMessage * _message;
 	void _queueMessage(AlarmMessage *dataMessage);
 	void _runQueue();	
+	String _filename;
 	bool _send;
+	bool _safe;
 	bool _root = false;
 public:
+	AlarmClient(const String filename, const String phone, bool send = true, bool safe = false, bool root = false)
+		: _filename(filename),_phone(phone),_send(send),_safe(safe),_root(root) {}
 	AlarmClient(char * p, bool s=true, bool r=false): _phone(p),_send(s),_root(r){}
 	AlarmClient(const String p, bool s = true) : _phone(p), _send(s) {}
 	~AlarmClient() {if (_message != NULL)free(_message); };
@@ -55,6 +61,8 @@ public:
 	void call();
 	bool root() {return _root;};
 	void root(bool root) {_root = root;};
+	bool safe() {return _safe;};
+	String& filename() {return _filename;};
 };
 
 class AlarmClass{
@@ -62,6 +70,7 @@ private:
 	
 	bool _isInterrupt = false;
 	bool _safe = true;
+	bool _sleep = false;
 	bool _pinInterrupt;
 	volatile byte interruptCounter = 0;
 	const byte interruptPin = DEFAULT_INT_PIN;
@@ -72,20 +81,25 @@ private:
 	
 public:
 	AlarmClass();
+	~AlarmClass();
 	String _msgDTMF = "";
 	AlarmClient *hashClient(String phone);
 	//AlarmClient getClient(String phone);
+	void begin();
 	bool isInterrupt(){return _isInterrupt;};
 	void interrupt(bool i){_isInterrupt = i;};
-	bool isSafe(){return _safe;};
-	void safe(bool safe){_safe = safe;};
+	void interrupt();
+	bool safe(){return _safe;};
+	void safe(bool safe);
+	void sleep(bool sleep) {_sleep = sleep;};
+	bool sleep() {return _sleep;};
 	void handle();
 	void textAll(const char * message, size_t len);
 	void textAll(const String &message);
 	void callAll();
 	void _cleanBuffers();
 	void _addClient(AlarmClient * client); 
-	void _removeClient(AlarmClient *client);
+	void removeClient(AlarmClient *client);
 	void fetchMessage(uint8_t index);
 	void fetchCall(String phone);
 	void parseSMS(String msg);
@@ -94,8 +108,11 @@ public:
 	void setStatusPinInt(bool pin) {_pinInterrupt = pin; };
 	bool getStatusPinInt() {return _pinInterrupt;};
 	byte getInterruptPin() {return interruptPin;};
+	bool createClient(String phone);
+	size_t doStatus(JsonObject& json);
 };
 
 extern AlarmClass Alarm;
+extern Task taskSleepModem;
 extern void handleInterrupt();
 extern bool /*ICACHE_RAM_ATTR*/ debounce(uint8_t pin);

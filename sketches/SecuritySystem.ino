@@ -1,4 +1,4 @@
-//#include <GSMSim.h>
+#include <ESP8266NetBIOS.h>
 #include "TaskController.h"
 #include "Memory.h"
 #include "Battery.h"
@@ -25,6 +25,11 @@
 int numberOfInterrupts = 0;
 void handleInterrupt();
 TaskController taskController = TaskController();
+Task /*ICACHE_RAM_ATTR*/ taskInfo([]() {
+	if (BATTERY->charge() < 50) {
+		taskSleepModem.resume();
+	}
+}, 60000);
 
 void setup(){
 #ifdef ESP8266_USE_GDB_STUB
@@ -36,16 +41,13 @@ void setup(){
 	//Serial.println("START SIM800L");
 #endif
 	Memory.init();
-	Alarm._addClient(new AlarmClient("+380500784234",true,true));
-	Alarm._addClient(new AlarmClient("+380950950102",true,false));
+	Alarm.begin();
 	//Alarm._addClient(new AlarmClient("0500784076"));
 	BATTERY = new BatteryClass();
 	BATTERY->onDischaged([](int charge) {
-		String str = "Заряд батареи низкий: " + String(charge) + "%";
-		//Alarm.textAll(str);
-		//if (GsmModem.sendSMS("+380500784234", str.c_str())){
-		//	BATTERY->setSMS(true);		
-		//}
+		if (!Alarm.sleep()){
+			taskSleepModem.resume();	
+		}			
 	});
 	
 	GsmModem.start();	
@@ -53,12 +55,14 @@ void setup(){
 	server.setup();
 	taskController.add(&taskConnectWiFi);
 	taskController.add(BATTERY);
+	taskController.add(&taskInfo);
+	taskController.add(&taskSleepModem);
 }
 String str = "";
 byte count_ring = 0;
 void /*ICACHE_RAM_ATTR*/ loop() {
 	taskController.run();
-	Alarm.handle();
+	Alarm.handle();		
 	if (GsmModem.available()){
 		str = GsmModem._readSerial();
 		if (str.indexOf(F("RING")) != -1) {
@@ -80,12 +84,13 @@ void /*ICACHE_RAM_ATTR*/ loop() {
 			
 		}else if (str.indexOf(F("UNDER")) != -1){
 			Alarm.textAll(str);
+			taskSleepModem.resume();
 		}else if (str.startsWith(F("NO CARRIER"))){
 			Alarm._msgDTMF = "";
 			count_ring = 0;
 		}else{
-			if (str.indexOf(F("SMS ready"))!=-1){
-				digitalWrite(DEFAULT_LED_PIN, HIGH);	
+			if (str.indexOf(F("Call Ready")) != -1) {
+				taskController.add(&taskSleepModem);					
 			}
 			str = "";
 		}

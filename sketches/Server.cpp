@@ -2,9 +2,11 @@
 #include <SPIFFSEditor.h>
 #include <AsyncJson.h>
 #include <functional>
+#include <ESP8266NetBIOS.h>
 #include "Memory.h"
 #include "HttpUpdater.h"
 #include "Battery.h"
+#include "Alarm.h"
 #include "tools.h"
 #include "alarm_config.h"
 
@@ -51,7 +53,6 @@ void ServerClass::setup() {
 			WiFi.config(lanIp, gateway, netMsk);    									// Надо сделать настройки ip адреса
 		}
 	}
-	WiFi.hostname(_hostname);
 	WiFi.softAPConfig(apIP, apIP, netMsk);
 	WiFi.softAP(getApSSID(), SOFT_AP_PASSWORD);
 	
@@ -160,8 +161,16 @@ void ServerClass::setup() {
 		});
 	serveStatic("/", SPIFFS, "/");
 #else
+	on("/index.html",[](AsyncWebServerRequest * request) {
+		if (!request->authenticate(Memory.eeprom.settings.login_alarm, Memory.eeprom.settings.password_alarm))
+			if (!server.checkAdminAuth(request)) {
+				return request->requestAuthentication();
+			}		
+		request->send(SPIFFS, request->url()); 
+	}); /* Главная страница. */
 	rewrite("/sn", "/settings.html");
-	serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");	
+	rewrite("/", "/index.html");
+	serveStatic("/", SPIFFS, "/")/*.setDefaultFile("index.html")*/;	
 #endif
 	if (BATTERY->isDischarged()) {
 		on("/ds",[](AsyncWebServerRequest *request) {
@@ -229,6 +238,8 @@ void handleSettings(AsyncWebServerRequest *request) {
 			Memory.eeprom.settings.hostPin = request->arg("pin").toInt();
 			request->arg("n_admin").toCharArray(Memory.eeprom.settings.login, request->arg("n_admin").length() + 1);
 			request->arg("p_admin").toCharArray(Memory.eeprom.settings.password, request->arg("p_admin").length() + 1);
+			request->arg("n_alarm").toCharArray(Memory.eeprom.settings.login_alarm, request->arg("n_alarm").length() + 1);
+			request->arg("p_alarm").toCharArray(Memory.eeprom.settings.password_alarm, request->arg("p_alarm").length() + 1);
 			goto save;
 		}			
 save:
@@ -266,6 +277,8 @@ void handleSettingsJson(AsyncWebServerRequest * request) {
 	settings["id_pin"] = Memory.eeprom.settings.hostPin;
 	settings["id_n_admin"] = Memory.eeprom.settings.login;
 	settings["id_p_admin"] = Memory.eeprom.settings.password;
+	settings["id_n_alarm"] = Memory.eeprom.settings.login_alarm;
+	settings["id_p_alarm"] = Memory.eeprom.settings.password_alarm;
 	settings["bat_max"] = Memory.eeprom.settings.bat_max;
 	settings["bat_min"] = Memory.eeprom.settings.bat_min;
 	
@@ -315,7 +328,7 @@ void onStationModeConnected(const WiFiEventStationModeConnected& evt) {
 	WiFi.softAP(server.getApSSID(), SOFT_AP_PASSWORD, evt.channel);   //Устанавливаем канал как роутера
 	WiFi.setAutoConnect(true);
 	WiFi.setAutoReconnect(true);
-	//NBNS.begin(CORE->getHostname().c_str());
+	NBNS.begin(server.hostname().c_str());
 	//BLINK->onRun(bind(&BlinkClass::blinkSTA, BLINK));
 }
 
@@ -386,12 +399,33 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 		const char *command = root["cmd"]; /* Получить показания датчика*/
 		JsonObject& json = jsonBuffer.createObject();
 		json["cmd"] = command;
-		if (strcmp(command, "scan") == 0) {
+		if (strcmp(command, "scan") == 0)
+		{
 			WiFi.scanNetworksAsync(printScanResult, true);
 			return;
 		}
-		else if (strcmp(command, "binfo") == 0) {
+		else if (strcmp(command, "creat") == 0)
+		{
+			const char *phone = root["phone"];
+			Alarm.createClient(phone);	
+		}
+		else if (strcmp(command, "remove") == 0)
+		{
+			const char *phone = root["phone"];
+			Alarm.removeClient(Alarm.hashClient(phone));
+		}
+		else if (strcmp(command, "binfo") == 0)
+		{
 			BATTERY->doInfo(json);
+		}
+		else if (strcmp(command, "status") == 0)
+		{
+			Alarm.doStatus(json);	
+		}
+		else if (strcmp(command, "safe") == 0)
+		{
+			Alarm.safe(root["val"]);
+			return;
 		}
 		else {
 			return;

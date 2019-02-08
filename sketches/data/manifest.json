@@ -1,0 +1,21 @@
+{
+  "short_name": "AlarmSystem",
+  "name": "www.scale.in.ua",
+  "icons": [
+    {
+      "src": "/warning.png",
+      "type": "image/png",
+      "sizes": "52x52"
+    },
+    {
+      "src": "/warning-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#abc0df",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#abc0df"
+}

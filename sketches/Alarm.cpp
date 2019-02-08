@@ -1,17 +1,21 @@
 #include "Alarm.h"
 #include "GsmModemClass.h"
 #include "Battery.h"
+#include "Server.h"
 
 AlarmClass Alarm;
+Task taskSleepModem([](){
+	Alarm.sleep(GsmModem.enterSleepMode());
+	if (Alarm.sleep())
+		taskSleepModem.pause();
+},20000);
 
-AlarmSMSMessage::AlarmSMSMessage(const char * data, size_t len)	: _len(len)
-{	
+AlarmSMSMessage::AlarmSMSMessage(const char * data, size_t len)	: _len(len){	
 	_data = (uint8_t*)malloc(_len + 1);
 	if (_data == NULL) {
 		_len = 0;
 		_status = AL_MSG_ERROR;
-	}
-	else {
+	}else {
 		_status = AL_MSG_SENDING;
 		memcpy(_data, data, _len);
 		_data[_len] = 0;
@@ -25,22 +29,14 @@ AlarmSMSMessage::~AlarmSMSMessage() {
 
 void AlarmSMSMessage::send(AlarmClient *client) {
 	if (_status != AL_MSG_SENDING)
-		return ;
-	
+		return ;	
 	//GsmModem.flush();
 	GsmModem.sendSMS(client->_phone.c_str(), _data);
 	_status = AL_MSG_SENDING;
 	//delete this;
 }
 
-void AlarmClient::_runQueue() {
-	/*while (!_messageQueue.isEmpty() && _messageQueue.front()->finished()) {
-		_messageQueue.remove(_messageQueue.front());
-	}
-
-	if (!_messageQueue.isEmpty()) {
-		_messageQueue.front()->send(this);
-	}*/
+void AlarmClient::_runQueue() {	
 	if (_message) {
 		_message->send(this);
 		delete _message;
@@ -49,14 +45,7 @@ void AlarmClient::_runQueue() {
 
 void AlarmClient::_queueMessage(AlarmMessage *dataMessage) {	
 	if (dataMessage == NULL)
-		return;		
-	/*if (_messageQueue.length() > AL_MAX_QUEUED_MESSAGES) {
-		ets_printf("ERROR: Too many messages queued\n");
-		delete dataMessage;
-	}
-	else {
-		_messageQueue.add(dataMessage);
-	}*/
+		return;	
 	_message = dataMessage;
 	if (canSend())
 		_runQueue();
@@ -71,44 +60,87 @@ void AlarmClient::text(const String &message) {
 
 void AlarmClient::call() {
 	GsmModem.onCallAccept([](int value) {
-		GsmModem.sendATCommand(F("ATH\n"), false);		
+		GsmModem.sendATCommand(F("ATH\n"), false);
+		Alarm.interrupt( false);
 	});
 	GsmModem.doCall(_phone, 10000);
-	GsmModem.sendATCommand(F("ATH\n"), false);
+	//GsmModem.sendATCommand(F("ATH\n"), false);
 };
 
-AlarmClass::AlarmClass() :_clients(LinkedList<AlarmClient *>([](AlarmClient *c){ delete c; }))
-{
+AlarmClass::AlarmClass() :_clients(LinkedList<AlarmClient *>([](AlarmClient *c){ delete c; })){
 	pinMode(interruptPin, INPUT_PULLUP);
-	attachInterrupt(digitalPinToInterrupt(interruptPin), handleInterrupt, CHANGE);
+	//attachInterrupt(digitalPinToInterrupt(interruptPin), handleInterrupt, CHANGE);
 }
 
-void /*ICACHE_RAM_ATTR*/ AlarmClass::handle() {			
+AlarmClass::~AlarmClass() {
+	_clients.free();
+}
+
+void /*ICACHE_RAM_ATTR*/ AlarmClass::begin() {	
+	Dir dir = SPIFFS.openDir("/P/");	
+	int i = 0;
+	while (dir.next()) {
+		File f = SPIFFS.open(dir.fileName(), "r");
+		size_t size = f.size();
+		std::unique_ptr<char[]> buf(new char[size]);
+		f.readBytes(buf.get(), size);
+		DynamicJsonBuffer jsonBuffer;
+		JsonObject &json = jsonBuffer.parseObject(buf.get());
+		if (json.success()) {
+			_addClient(new AlarmClient(dir.fileName(), json["phone"], json["send"], json["root"]));				
+		}
+		i++;
+	}
+	_pinInterrupt = debounce(interruptPin);
+	taskSleepModem.pause();
+}
+
+void AlarmClass::interrupt(){
+	bool p = debounce(interruptPin);
+	if (_pinInterrupt == p)
+		return;
+	_pinInterrupt = p;
+	interrupt(true);	
+}
+
+void /*ICACHE_RAM_ATTR*/ AlarmClass::handle() {	
+	interrupt();
 	if (!isInterrupt()){
 		return;	
-	}
-	interrupt(false);
+	}	
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject &json = jsonBuffer.createObject();
+	json["cmd"] = String("status");
+	doStatus(json);
+	size_t lengh = json.measureLength();	
+	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(lengh);
+	if (buffer) {
+		json.printTo((char *)buffer->get(), lengh + 1);
+		ws.textAll(buffer);
+	}	
 	if (!_safe){
+		interrupt(false);
 		return;	
 	}
-	detachInterrupt(interruptPin);
-	digitalWrite(DEFAULT_LED_PIN, LOW);
+	sleep(!GsmModem.disableSleep());
+	//detachInterrupt(interruptPin);
 	_pinInterrupt = debounce(interruptPin);
+	digitalWrite(DEFAULT_LED_PIN, LOW);		
 	if (_pinInterrupt){
 		callAll();
-		textAll("Alarm: Open sensor!!!");	
-		//digitalWrite(DEFAULT_LED_PIN, LOW);
+		textAll("Alarm: Open sensor!!!");
 	}else{
 		callAll();
 		textAll("Alarm: Closed sensor!!!");
-		//digitalWrite(DEFAULT_LED_PIN, HIGH);
 	}
-	attachInterrupt(digitalPinToInterrupt(interruptPin), handleInterrupt, CHANGE);
+	//interrupt(false);																		//TODO сделать false когда было доставлено сообщения
+	//attachInterrupt(digitalPinToInterrupt(interruptPin), handleInterrupt, CHANGE);
 	digitalWrite(DEFAULT_LED_PIN, HIGH);
+	taskSleepModem.updateCache();
+	taskSleepModem.setInterval(600000); // 10 minut
 }
 
 void AlarmClass::textAll(const String &message) {
-	//textAll(message.c_str(), message.length());
 	if(!message) return;
 	for (const auto& c : _clients) {
 		if (c->canSend()) {
@@ -129,14 +161,13 @@ void AlarmClass::_addClient(AlarmClient * client) {
 	_clients.add(client);
 }
 
-void /*ICACHE_RAM_ATTR*/ AlarmClass::_removeClient(AlarmClient *client) {
+void /*ICACHE_RAM_ATTR*/ AlarmClass::removeClient(AlarmClient *client) {
 	if (!client)
 		return;
-	if(!client->root())
-		_clients.remove(client);
-	/*_clients.remove_first([=](AlarmClient * c) {
-		return c->_phone == client->_phone;
-	});*/
+	if (client->root())
+		return;
+	if(SPIFFS.remove(client->filename()))	
+		_clients.remove(client);	
 }
 
 AlarmClient *AlarmClass::hashClient(String phone){
@@ -170,9 +201,10 @@ void AlarmClass::fetchCall(String phone) {
 	_curentClient = hashClient(phone);	
 	if (_curentClient){
 		_msgDTMF = "";
-		GsmModem.sendATCommand("ATA", true);                  // ...отвечаем (поднимаем трубку)	
-	}
-	else{
+		GsmModem.sendATCommand("ATA", true);                  // ...отвечаем (поднимаем трубку)
+		taskSleepModem.updateCache();
+		taskSleepModem.setInterval(300000);			//5 minute
+	}else{
 		GsmModem.sendATCommand(F("ATH\n"), false);				//...сбрасываем
 		//_curentClient = NULL;
 	}	
@@ -230,14 +262,13 @@ bool /*ICACHE_RAM_ATTR*/ AlarmClass::fetchCommand(String cmd) {
 	switch (command.toInt()){
 		case 123:																//добавить клиента
 			if(!_curentClient->root())
-				return false;
-			_addClient(new AlarmClient(value, true));	
+				return false;			
+			createClient(value);
 		break;
 		case 321:																//удалить клиента
 			if(!_curentClient->root())
 				return false;
-			_removeClient(hashClient(value));
-			
+			removeClient(hashClient(value));			
 		break;
 		case 111:{																//список клиентов
 			if (!_curentClient->root())
@@ -252,15 +283,21 @@ bool /*ICACHE_RAM_ATTR*/ AlarmClass::fetchCommand(String cmd) {
 			break;			
 		}
 		case 222:																//поставить на сигнализацию
-			_safe = true;
+			if(_curentClient->safe())
+				safe(true);
+			else
+				return false;			
 		break;
 		case 333:																//снять с сигнализации
-			_safe = false;
+			if(_curentClient->safe())
+				safe(false);
+			else
+				return false;
 		break;
 		case 444: {																//информация состояния модуля																			
 			String info = "";
-			info += "Battery:" + (String)BATTERY->getCharge() + "%";
-			info += " Safe:" + (String)Alarm.isSafe();
+			info += "Battery:" + (String)BATTERY->charge() + "%";
+			info += " Safe:" + (String)Alarm.safe();
 			info += " Sensor:" + (String)debounce(interruptPin);
 			GsmModem.sendSMS(_curentClient->_phone.c_str(), info.c_str());
 			break;
@@ -269,6 +306,57 @@ bool /*ICACHE_RAM_ATTR*/ AlarmClass::fetchCommand(String cmd) {
 			return false;
 	}	
 	return true;
+};
+
+bool AlarmClass::createClient(String phone){	
+	Dir dir = SPIFFS.openDir("/P/");
+	phone = phone.substring(phone.length() - 10);
+	String filename = "/P/" + phone + ".json";
+	int i = 0;
+	while (dir.next()) {
+		if (dir.fileName().equals(filename))
+			return true;
+		i++;
+	}
+	if (i > 4){
+		return false;
+	}		
+	File f = SPIFFS.open(filename, "w+");
+	// Check if we created the file
+	if(f) {
+		DynamicJsonBuffer jsonBuffer;
+		JsonObject &root = jsonBuffer.createObject();
+		root["name"] = "";
+		root["phone"] = phone;
+		root["send"] = false;
+		root["safe"] = false;
+		root["root"] = false;
+		root.printTo(f);
+		_addClient(new AlarmClient(filename,phone,false, false,false));
+	}
+	f.close();
+	return true;
+}
+
+size_t AlarmClass::doStatus(JsonObject& json) {
+	json["safe"] = _safe;
+	json["bat"] = (String)BATTERY->charge() + "%";
+	json["sensor"] = debounce(interruptPin)?"OPEN":"CLOSE";
+	json["sleep"] = Alarm.sleep() ? "SLEEP" : "NOT SLEEP";
+	return json.measureLength();	
+};
+
+void AlarmClass::safe(bool safe) {
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject &json = jsonBuffer.createObject();
+	json["cmd"] = "safe";
+	json["val"] = _safe = safe;
+	size_t lengh = json.measureLength();	
+	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(lengh);
+	if (buffer) {
+		json.printTo((char *)buffer->get(), lengh + 1);
+		ws.textAll(buffer);
+	}
 };
 
 bool /*ICACHE_RAM_ATTR*/ debounce(uint8_t pin) {

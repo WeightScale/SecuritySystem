@@ -31,6 +31,8 @@ bool MemoryClass::doDefault() {
 	host.toCharArray(eeprom.settings.hostUrl, host.length() + 1);
 	l.toCharArray(eeprom.settings.login, l.length() + 1);
 	l.toCharArray(eeprom.settings.password, l.length() + 1);
+	l.toCharArray(eeprom.settings.login_alarm, l.length() + 1);
+	l.toCharArray(eeprom.settings.password_alarm, l.length() + 1);
 	eeprom.settings.hostPin = 0;
 	eeprom.settings.bat_max = MAX_CHG;
 	eeprom.settings.bat_min = MIN_CHG;	

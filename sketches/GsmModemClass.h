@@ -39,6 +39,7 @@ class GsmModemClass : public SoftwareSerial {
 		HandleCallAccept _handleAccept;
 		String _readSerial(uint32_t timeout);
 		bool _checkResponse(enum_ask_t ask, uint16_t timeout);
+	String _checkResponse(String ask, uint16_t timeout = TIME_OUT_READ_SERIAL);
 		String _readSerialUtil(char terminator, uint16_t timeout);
 		String _waitResponse(uint32_t timeout);
 		static const uint8_t _responseInfoSize = 12; 
@@ -71,6 +72,7 @@ class GsmModemClass : public SoftwareSerial {
 		String moduleModel();
 		bool setFullMode();
 		bool echoOff();
+	bool isReady();
 		bool echoOn();
 		bool enterSleepMode();
 		bool disableSleep();
@@ -80,7 +82,7 @@ class GsmModemClass : public SoftwareSerial {
 	void processSMS(const String );
 	String sendATCommand(String cmd, bool waiting, uint32_t timeout = TIME_OUT_READ_SERIAL);
 	void onCallAccept(HandleCallAccept accept) {_handleAccept = accept;};
-	int doCall(String phone, uint16_t timeout);
+	void doCall(String phone, uint16_t timeout);
 };
 
 extern GsmModemClass GsmModem;

@@ -30,11 +30,13 @@ public:
 	char* getSSID(){return _settings->wSSID;};
 	char* getPASS(){return _settings->wKey;};
 	char* getApSSID() { return _settings->apSSID;};
+	String& hostname() {return _hostname;};
 };
 
 extern void handleSettings(AsyncWebServerRequest * request);
 void handleSettingsJson(AsyncWebServerRequest *request);
 extern ServerClass server;
+extern AsyncWebSocket ws;
 extern IPAddress apIP;
 extern IPAddress netMsk;
 extern IPAddress lanIp; 			// 

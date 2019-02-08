@@ -1,0 +1,11 @@
+{
+  "count":5,
+  "users":
+  [
+    {"id":0,"name":"konst","phone":"+380500784234","send":true,"root":true},
+    {"id":1,"name":"andrey","phone":"+380950950102","send":true,"root":false},
+    {"id":2,"name":"","phone":"","send":false,"root":false},
+    {"id":3,"name":"","phone":"","send":false,"root":false},
+    {"id":4,"name":"","phone":"","send":false,"root":false}
+  ]
+}
