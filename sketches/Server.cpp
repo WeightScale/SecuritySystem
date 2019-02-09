@@ -63,7 +63,7 @@ void ServerClass::setup() {
 	on("/settings.html", HTTP_ANY, handleSettings);
 	on("/settings.json", HTTP_ANY, handleSettingsJson);
 	on("/rc",HTTP_GET,[](AsyncWebServerRequest *request) {
-		AsyncWebServerResponse *response = request->beginResponse_P(200, PSTR("text/html"), "RECONNECT...");
+		AsyncWebServerResponse *response = request->beginResponse_P(200, PSTR("text/html"), PSTR("RECONNECT..."));
 		response->addHeader("Connection", "close");
 		request->onDisconnect([]() {
 			SPIFFS.end();
@@ -91,14 +91,14 @@ void ServerClass::setup() {
 			str += String(ESP.getFreeHeap());
 			str += " client: ";
 			//str += String(ws.count());
-			request->send(200, "text/plain", str);
+			request->send(200, F("text/plain"), str);
 	});
 	on("/rst",HTTP_ANY,[this](AsyncWebServerRequest * request) {
 			if (!isAuthentified(request)) {
 				return request->requestAuthentication();
 			}
 			if (Memory.doDefault())
-				request->send_P(200, F("text/html"), "Установлено!");
+			request->send_P(200, PSTR("text/html"), PSTR("Установлено!"));
 			else
 				request->send(400);
 	});
@@ -174,8 +174,8 @@ void ServerClass::setup() {
 #endif
 	if (BATTERY->isDischarged()) {
 		on("/ds",[](AsyncWebServerRequest *request) {
-				AsyncWebServerResponse *response = request->beginResponse(SPIFFS, "/balert.html");
-				response->addHeader("Connection", "close");
+			AsyncWebServerResponse *response = request->beginResponse(SPIFFS, PSTR("/balert.html"));
+			response->addHeader(PSTR("Connection"), PSTR("close"));
 				request->onDisconnect([]() {
 					ESP.deepSleep(20000);
 				});

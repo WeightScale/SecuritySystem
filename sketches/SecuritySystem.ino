@@ -15,20 +15,17 @@
 	extern "C" int gdbstub_do_break();
 #endif
 
-//#define RX  5
-//#define TX  4
-//#define RESET 12
-//#define LED 2
-
-
-
 int numberOfInterrupts = 0;
 void handleInterrupt();
 TaskController taskController = TaskController();
 Task /*ICACHE_RAM_ATTR*/ taskInfo([]() {
-	if (BATTERY->charge() < 50) {
+	if (BATTERY->charge() < 50)
+	{
 		taskSleepModem.resume();
-	}
+	}else{
+		if(GsmModem.disableSleep())
+			taskSleepModem.resume();
+	}		
 }, 60000);
 
 void setup(){
@@ -90,7 +87,7 @@ void /*ICACHE_RAM_ATTR*/ loop() {
 			count_ring = 0;
 		}else{
 			if (str.indexOf(F("Call Ready")) != -1) {
-				taskController.add(&taskSleepModem);					
+				//taskController.add(&taskSleepModem);					
 			}
 			str = "";
 		}

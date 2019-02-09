@@ -38,10 +38,10 @@ void HttpUpdaterClass::handleRequest(AsyncWebServerRequest *request){
 			return;
 		}
 		if(_updaterError && _updaterError[0] != 0x00){
-			AsyncWebServerResponse * response = request->beginResponse(200, "text/html", _updaterError);
+			AsyncWebServerResponse * response = request->beginResponse(200, F("text/html"), _updaterError);
 			request->send(response);
 		}else{
-			AsyncWebServerResponse * response = request->beginResponse_P(200, "text/html", successResponse);
+			AsyncWebServerResponse * response = request->beginResponse_P(200, F("text/html"), successResponse);
 			response->addHeader("Connection", "close");
 			request->send(response);
 			request->onDisconnect([](){ESP.reset();});
@@ -110,10 +110,10 @@ void HttpUpdaterClass::handleHttpStartUpdate(AsyncWebServerRequest * request){		
 		}
 		switch(ret) {
 			case HTTP_UPDATE_FAILED:
-				request->send(404, "text/plain", ESPhttpUpdate.getLastErrorString());
+				request->send(404, F("text/plain"), ESPhttpUpdate.getLastErrorString());
 			break;
 			case HTTP_UPDATE_NO_UPDATES:
-				request->send(304, "text/plain", "Обновление не требуется");
+				request->send(304, F("text/plain"), F("Обновление не требуется"));
 			break;
 			case HTTP_UPDATE_OK:
 				request->client()->stop();

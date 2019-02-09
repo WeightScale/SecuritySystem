@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <StringArray.h>
 #include <ArduinoJson.h>
+#include <functional>
 #include "Task.h"
 #define DEFAULT_INT_PIN 13
 #define AL_MAX_QUEUED_MESSAGES 8
@@ -65,15 +66,16 @@ public:
 	String& filename() {return _filename;};
 };
 
-class AlarmClass{
+typedef std::function<void(String)> AlarmHandleCommand;
+class AlarmClass{	
 private:
-	
+	AlarmHandleCommand _handleCommand;
 	bool _isInterrupt = false;
 	bool _safe = true;
 	bool _sleep = false;
 	bool _pinInterrupt;
 	volatile byte interruptCounter = 0;
-	const byte interruptPin = DEFAULT_INT_PIN;
+	const byte _interruptPin = DEFAULT_INT_PIN;
 	LinkedList<AlarmClient *> _clients;
 	String _codeOnAlarm = "1234";
 	String _codeOffAlarm = "4321";
@@ -86,6 +88,7 @@ public:
 	AlarmClient *hashClient(String phone);
 	//AlarmClient getClient(String phone);
 	void begin();
+	AlarmClient *curentClient() {return _curentClient;};
 	bool isInterrupt(){return _isInterrupt;};
 	void interrupt(bool i){_isInterrupt = i;};
 	void interrupt();
@@ -107,9 +110,11 @@ public:
 	bool fetchCommand(String cmd);
 	void setStatusPinInt(bool pin) {_pinInterrupt = pin; };
 	bool getStatusPinInt() {return _pinInterrupt;};
-	byte getInterruptPin() {return interruptPin;};
+	byte interruptPin() {return _interruptPin;};
 	bool createClient(String phone);
 	size_t doStatus(JsonObject& json);
+	void onCommand(AlarmHandleCommand fn){_handleCommand = fn;};
+	void listClients(String value);
 };
 
 extern AlarmClass Alarm;

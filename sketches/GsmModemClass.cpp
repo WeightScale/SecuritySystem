@@ -73,11 +73,11 @@ void GsmModemClass::reset() {
 
 // SIGNAL QUALTY - 0-31 | 0-> poor | 31 - Full | 99 -> Unknown
 uint8_t GsmModemClass::signalQuality() {
-	this->print("AT+CSQ\r");
+	this->print(F("AT+CSQ\r"));
 	_buffer = _readSerial(10000);
 	//_checkResponse(OK_, 5000);
-	if((_buffer.indexOf("+CSQ:")) != -1) {
-		return _buffer.substring(_buffer.indexOf("+CSQ: ") + 6, _buffer.indexOf(",")).toInt();
+	if((_buffer.indexOf(F("+CSQ:"))) != -1) {
+		return _buffer.substring(_buffer.indexOf(F("+CSQ: ")) + 6, _buffer.indexOf(",")).toInt();
 	}
 	else {
 		return 99;
@@ -85,7 +85,7 @@ uint8_t GsmModemClass::signalQuality() {
 }
 
 String GsmModemClass::moduleModel() {
-	this->print("AT+CGMM\r\n");
+	this->print(F("AT+CGMM\r\n"));
 	_buffer = _readSerialUtil('\n',5000);
 
 	//String veri = _buffer.substring(8, _buffer.indexOf("OK"));
@@ -100,14 +100,14 @@ bool /*ICACHE_RAM_ATTR*/ GsmModemClass::setFullMode() {
 	//This set the device to full funcionality - AT+CFUN
 	bool nowReady = false;
 	String str = sendATCommand(F("AT+CFUN?\r"), true);
-	int index = str.indexOf("CFUN:");
+	int index = str.indexOf(F("CFUN:"));
 	index = str.substring(index + 6, index + 7).toInt();
 	if (index == 0) {
 		this->print(F("AT+CFUN=1\r"));
-		str = _checkResponse("OK", 10000);
-		if (str.indexOf("READY") != -1)
+		str = _checkResponse(F("OK"), 10000);
+		if (str.indexOf(F("READY")) != -1)
 			nowReady = true;
-		str = _checkResponse("Call Ready", 20000);
+		str = _checkResponse(F("Call Ready"), 20000);
 	}else
 		return true;
 	return nowReady;
@@ -115,15 +115,15 @@ bool /*ICACHE_RAM_ATTR*/ GsmModemClass::setFullMode() {
 
 bool /*ICACHE_RAM_ATTR*/ GsmModemClass::enterSleepMode() {	
 	String str = sendATCommand(F("AT+CFUN?\r"), true);
-	int index = str.indexOf("CFUN:");
+	int index = str.indexOf(F("CFUN:"));
 	index = str.substring(index + 6, index + 7).toInt();
 	if (index == 1){
 		this->print(F("AT+CFUN=0\r"));
-		str = _checkResponse("OK",10000);
-		if (str.indexOf("NOT READY") == -1)
+		str = _checkResponse(F("OK"),10000);
+		if (str.indexOf(F("NOT READY")) == -1)
 			return false;
 	}
-	if(sendATCommand(F("AT+CSCLK=2\r\n"), true).indexOf("OK") == -1)
+	if(sendATCommand(F("AT+CSCLK=2\r\n"), true).indexOf(F("OK")) == -1)
 		return false;	 	 
 	return true;
 }
@@ -133,7 +133,7 @@ bool /*ICACHE_RAM_ATTR*/ GsmModemClass::disableSleep() {
 	// first we need to send something random for as long as 100ms
 	this->print(F("FF\r"));
 	delay(120);  // this is between waking charaters and next AT commands	
-	if(sendATCommand(F("AT+CSCLK=0\r"), true).indexOf("OK") == -1)
+	if(sendATCommand(F("AT+CSCLK=0\r"), true).indexOf(F("OK")) == -1)
 		return false;
 	delay(100);  // just chill for 100ms for things to stablize
 	if(!setFullMode())
@@ -174,9 +174,9 @@ bool /*ICACHE_RAM_ATTR*/ GsmModemClass::isReady() {
 }
 
 bool /*ICACHE_RAM_ATTR*/ GsmModemClass::sendSMS(const char* number, const char* text) {			
-	this->print("AT+CMGS=\"");   // command to send sms
+	this->print(F("AT+CMGS=\""));   // command to send sms
 	this->print(number);
-	this->print("\"\r\n");	
+	this->print(F("\"\r\n"));	
 	if(_checkResponse(READY_TO_RECEIVE, 20000)) {
 		this->print(text);
 		this->print("\r");
@@ -189,9 +189,9 @@ bool /*ICACHE_RAM_ATTR*/ GsmModemClass::sendSMS(const char* number, const char* 
 }
 
 bool GsmModemClass::sendSMS(const char* number, uint8_t* text) {	
-	this->print("AT+CMGS=\"");    // command to send sms
+	this->print(F("AT+CMGS=\""));    // command to send sms
 	this->print(number);
-	this->print("\"\r\n");
+	this->print(F("\"\r\n"));
 	if(_checkResponse(READY_TO_RECEIVE, 20000)) {
 		this->print(String((char*)text));
 		this->print("\r");
@@ -207,7 +207,7 @@ String GsmModemClass::getSMS(uint8_t index){
 }
 
 void /*ICACHE_RAM_ATTR*/ GsmModemClass::doCall(String phone, uint16_t timeout) {
-	this->print("ATD");     // command to send sms
+	this->print(F("ATD"));     // command to send sms
 	this->print(phone);
 	this->print(";\n");
 	String str = "";

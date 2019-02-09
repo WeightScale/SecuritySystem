@@ -68,7 +68,7 @@ void AlarmClient::call() {
 };
 
 AlarmClass::AlarmClass() :_clients(LinkedList<AlarmClient *>([](AlarmClient *c){ delete c; })){
-	pinMode(interruptPin, INPUT_PULLUP);
+	pinMode(_interruptPin, INPUT_PULLUP);
 	//attachInterrupt(digitalPinToInterrupt(interruptPin), handleInterrupt, CHANGE);
 }
 
@@ -91,12 +91,12 @@ void /*ICACHE_RAM_ATTR*/ AlarmClass::begin() {
 		}
 		i++;
 	}
-	_pinInterrupt = debounce(interruptPin);
+	_pinInterrupt = debounce(_interruptPin);
 	taskSleepModem.pause();
 }
 
 void AlarmClass::interrupt(){
-	bool p = debounce(interruptPin);
+	bool p = debounce(_interruptPin);
 	if (_pinInterrupt == p)
 		return;
 	_pinInterrupt = p;
@@ -124,15 +124,10 @@ void /*ICACHE_RAM_ATTR*/ AlarmClass::handle() {
 	}
 	sleep(!GsmModem.disableSleep());
 	//detachInterrupt(interruptPin);
-	_pinInterrupt = debounce(interruptPin);
-	digitalWrite(DEFAULT_LED_PIN, LOW);		
-	if (_pinInterrupt){
-		callAll();
-		textAll("Alarm: Open sensor!!!");
-	}else{
-		callAll();
-		textAll("Alarm: Closed sensor!!!");
-	}
+	_pinInterrupt = debounce(_interruptPin);
+	digitalWrite(DEFAULT_LED_PIN, LOW);	
+	callAll();
+	textAll(_pinInterrupt ? F("Alarm: Open sensor!!!") : F("Alarm: Closed sensor!!!"));	
 	//interrupt(false);																		//TODO сделать false когда было доставлено сообщения
 	//attachInterrupt(digitalPinToInterrupt(interruptPin), handleInterrupt, CHANGE);
 	digitalWrite(DEFAULT_LED_PIN, HIGH);
@@ -186,7 +181,7 @@ void AlarmClass::fetchMessage(uint8_t index) {
 	bool hasmsg = false;
 	str = GsmModem.getSMS(index);
 	str.trim();                                         // Убираем пробелы в начале/конце
-    if(str.endsWith("OK")) {// Если ответ заканчивается на "ОК"
+    if(str.endsWith(F("OK"))) {// Если ответ заканчивается на "ОК"
 		if(!hasmsg) 
 			hasmsg = true;                            // Ставим флаг наличия сообщений для удаления
         //GsmModem.sendATCommand("AT+CMGR=" + (String)index, true);     // Делаем сообщение прочитанным
@@ -201,7 +196,7 @@ void AlarmClass::fetchCall(String phone) {
 	_curentClient = hashClient(phone);	
 	if (_curentClient){
 		_msgDTMF = "";
-		GsmModem.sendATCommand("ATA", true);                  // ...отвечаем (поднимаем трубку)
+		GsmModem.sendATCommand(F("ATA"), true);                  // ...отвечаем (поднимаем трубку)
 		taskSleepModem.updateCache();
 		taskSleepModem.setInterval(300000);			//5 minute
 	}else{
@@ -215,11 +210,11 @@ void AlarmClass::parseSMS(String msg) {
 	String msgbody    = "";
 	String msgphone   = "";
 
-	msg = msg.substring(msg.indexOf("+CMGR: "));
+	msg = msg.substring(msg.indexOf(F("+CMGR: ")));
 	msgheader = msg.substring(0, msg.indexOf("\r"));             // Выдергиваем телефон
 
 	msgbody = msg.substring(msgheader.length() + 2);
-	msgbody = msgbody.substring(0, msgbody.lastIndexOf("OK"));   // Выдергиваем текст SMS
+	msgbody = msgbody.substring(0, msgbody.lastIndexOf(F("OK")));   // Выдергиваем текст SMS
 	msgbody.trim();
 
 	int firstIndex = msgheader.indexOf("\",\"") + 3;
@@ -237,69 +232,85 @@ void AlarmClass::parseSMS(String msg) {
 
 void AlarmClass::parseDTMF(String msg) {
 	if (msg.equals("#")) {		
-		if (_curentClient)
+		if (_curentClient){
+			int _inx = _msgDTMF.indexOf("*");
+			String command="",value="";
+			if (_inx != -1) {
+				command = _msgDTMF.substring(0, _inx);
+				value = _msgDTMF.substring(_msgDTMF.indexOf("*") + 1);
+			}else{
+				command = _msgDTMF.substring(0);
+			}		
+			if (command.length() != 3)
+				return ;
 			if (fetchCommand(_msgDTMF)) {// ...выполняем команду
-				GsmModem.sendATCommand(F("ATH\n"), false);	
-			}; 
-		//_curentClient = NULL;
+				GsmModem.sendATCommand(F("ATH\n"), false);
+				if (_handleCommand)
+					_handleCommand(value);
+			};	
+		}
 		_msgDTMF = "";
 	}else {
 		_msgDTMF += msg;	
 	};
 };
 
-bool /*ICACHE_RAM_ATTR*/ AlarmClass::fetchCommand(String cmd) {
-	int index = cmd.indexOf("*");
-	String command="",value="";
-	if (index != -1){
-		command = cmd.substring(0, index);
-		value = cmd.substring(cmd.indexOf("*") + 1);
-	}else{
-		command = cmd.substring(0);
-	}		
-	if (command.length() != 3)
-		return false;
-	switch (command.toInt()){
+bool /*ICACHE_RAM_ATTR*/ AlarmClass::fetchCommand(String cmd) {	
+	switch (cmd.toInt()){
 		case 123:																//добавить клиента
 			if(!_curentClient->root())
-				return false;			
-			createClient(value);
+				return false;
+			onCommand([](String value) {
+				Alarm.createClient(value);
+				GsmModem.sendSMS(Alarm.curentClient()->_phone.c_str(), String("Client: "+ value + "added").c_str());	
+			});			
 		break;
 		case 321:																//удалить клиента
 			if(!_curentClient->root())
 				return false;
-			removeClient(hashClient(value));			
+			onCommand([](String value) {
+				Alarm.removeClient(Alarm.hashClient(value));
+				GsmModem.sendSMS(Alarm.curentClient()->_phone.c_str(), String("Client: " + value + "removed").c_str());	
+			});						
 		break;
-		case 111:{																//список клиентов
+		case 111:{																//список клиентов			
 			if (!_curentClient->root())
 				return false;
 			if (_clients.length() == 0)
-				return false;
-			String msg = "";
-			for (const auto& c : _clients) {
-				msg += c->_phone + ":";					
-			}
-			GsmModem.sendSMS(_curentClient->_phone.c_str(), msg.c_str());
+				return false;			
+			onCommand(std::bind(&AlarmClass::listClients, this, std::placeholders::_1));			
 			break;			
 		}
 		case 222:																//поставить на сигнализацию
 			if(_curentClient->safe())
-				safe(true);
+				onCommand([](String value) {
+					Alarm.safe(true);
+					GsmModem.sendSMS(Alarm.curentClient()->_phone.c_str(), "guarded!!!");	
+				});
 			else
 				return false;			
 		break;
 		case 333:																//снять с сигнализации
 			if(_curentClient->safe())
-				safe(false);
+				onCommand([](String value) {
+				Alarm.safe(true);
+				GsmModem.sendSMS(Alarm.curentClient()->_phone.c_str(), "not guarded!!!");	
+			});
 			else
 				return false;
 		break;
-		case 444: {																//информация состояния модуля																			
-			String info = "";
-			info += "Battery:" + (String)BATTERY->charge() + "%";
-			info += " Safe:" + (String)Alarm.safe();
-			info += " Sensor:" + (String)debounce(interruptPin);
-			GsmModem.sendSMS(_curentClient->_phone.c_str(), info.c_str());
+		case 444: {																//информация состояния модуля
+			onCommand([](String value) {
+				DynamicJsonBuffer jsonBuffer;				
+				JsonObject& json = jsonBuffer.createObject();
+				Alarm.doStatus(json);
+				String info = "";
+				json.printTo(info);
+				//info += "Battery:" + (String)BATTERY->charge() + "%";
+				//info += " Safe:" + (String)Alarm.safe();
+				//info += " Sensor:" + (String)(debounce(Alarm.interruptPin())?"OPEN":"CLOSE");				
+				GsmModem.sendSMS(Alarm.curentClient()->_phone.c_str(), info.c_str());	
+			});			
 			break;
 		}
 		default:
@@ -341,8 +352,8 @@ bool AlarmClass::createClient(String phone){
 size_t AlarmClass::doStatus(JsonObject& json) {
 	json["safe"] = _safe;
 	json["bat"] = (String)BATTERY->charge() + "%";
-	json["sensor"] = debounce(interruptPin)?"OPEN":"CLOSE";
-	json["sleep"] = Alarm.sleep() ? "SLEEP" : "NOT SLEEP";
+	json["sensor"] = debounce(interruptPin())?F("OPEN"):F("CLOSE");
+	json["sleep"] = Alarm.sleep() ? F("SLEEP") : F("NOT SLEEP");
 	return json.measureLength();	
 };
 
@@ -358,6 +369,14 @@ void AlarmClass::safe(bool safe) {
 		ws.textAll(buffer);
 	}
 };
+
+void AlarmClass::listClients(String value){
+	String msg = "";
+	for (const auto& c : _clients) {
+		msg += c->_phone + ":";					
+	}
+	GsmModem.sendSMS(_curentClient->_phone.c_str(), msg.c_str());	
+}
 
 bool /*ICACHE_RAM_ATTR*/ debounce(uint8_t pin) {
 	bool current = digitalRead(pin);
